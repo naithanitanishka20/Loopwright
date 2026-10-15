@@ -13,6 +13,7 @@ dependencies = ["shapely>=2.0", "numpy>=1.26"]
 [project.optional-dependencies]
 dev = ["pytest>=8", "hypothesis>=6.100"]
 e2e = ["playwright>=1.40"]
+import = ["ezdxf>=1.1", "pillow>=10", "scikit-image>=0.22", "pdfplumber>=0.11"]
 
 [project.scripts]
 loopwright = "loopwright.cli:main"
