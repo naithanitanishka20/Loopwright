@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.hypothesis/
+
+# Data and outputs (ResPlan is ~100 MB; fetch it with scripts/fetch_resplan.py)
+data/
+out/
+bench/runs/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

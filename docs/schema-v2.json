@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "loopwright/2",
+  "title": "Loopwright design output",
+  "type": "object",
+  "required": ["schema", "plan_id", "frame", "rules", "weights", "rooms", "hubs", "nodes", "rings", "metrics", "ranking_key", "validation", "reviewer", "diagnostics"],
+  "properties": {
+    "schema": {"const": "loopwright/2"},
+    "plan_id": {"type": ["integer", "string"]},
+    "frame": {
+      "type": "object",
+      "required": ["units", "m_per_unit"],
+      "properties": {"units": {"type": "string"}, "m_per_unit": {"type": "number", "exclusiveMinimum": 0}}
+    },
+    "rules": {
+      "type": "object",
+      "required": ["max_area_m2", "max_nodes", "zone_link", "axis_aligned"],
+      "properties": {
+        "max_area_m2": {"type": "number"},
+        "max_nodes": {"type": "integer"},
+        "zone_link": {"enum": ["strict", "circulation", "through_rooms", "none"]},
+        "axis_aligned": {"type": "boolean"}
+      }
+    },
+    "weights": {"type": "object"},
+    "rooms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "area_m2", "eligible"],
+        "properties": {"id": {"type": "string"}, "type": {"type": "string"}, "area_m2": {"type": "number"}, "eligible": {"type": "boolean"}}
+      }
+    },
+    "hubs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "pos", "room", "zone", "area_m2", "nodes"],
+        "properties": {
+          "id": {"type": "string"},
+          "pos": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+          "room": {"type": "string"},
+          "zone": {"type": "array", "items": {"type": "string"}},
+          "area_m2": {"type": "number"},
+          "nodes": {"type": "integer"}
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "room", "pos", "hub", "order"],
+        "properties": {
+          "id": {"type": "string"}, "room": {"type": "string"},
+          "pos": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+          "hub": {"type": "string"}, "order": {"type": "integer"}
+        }
+      }
+    },
+    "rings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hub", "sequence", "legs", "length_m", "bends"],
+        "properties": {
+          "hub": {"type": "string"},
+          "sequence": {"type": "array", "items": {"type": "string"}},
+          "legs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["n", "from", "to", "path", "length_m", "bends"],
+              "properties": {
+                "n": {"type": "integer"}, "from": {"type": "string"}, "to": {"type": "string"},
+                "path": {"type": "array", "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}, "minItems": 2},
+                "portals": {"type": "array", "items": {"type": "string"}},
+                "length_m": {"type": "number"}, "bends": {"type": "integer"}
+              }
+            }
+          },
+          "length_m": {"type": "number"}, "bends": {"type": "integer"}
+        }
+      }
+    },
+    "metrics": {"type": "object", "required": ["hubs", "hub_lower_bound", "length_m", "bends", "J"]},
+    "ranking_key": {"type": "array", "minItems": 2, "maxItems": 2},
+    "validation": {"type": "object", "required": ["valid", "checks"]},
+    "reviewer": {"type": "array", "items": {"type": "string"}},
+    "diagnostics": {"type": "array", "items": {"type": "object", "required": ["code"]}}
+  }
+}
