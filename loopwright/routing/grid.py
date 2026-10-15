@@ -16,6 +16,8 @@ from shapely.ops import unary_union
 
 INF = float("inf")
 START = 4
+# About 200 m by 200 m at the 0.2 m grid: far beyond any home, small enough to route.
+MAX_GRID_VERTICES = 1_000_000
 
 
 class GridRouter:
@@ -39,6 +41,9 @@ class GridRouter:
 
         x1, y1, x2, y2 = layers["inner"].bounds
         step = spacing_m / self.s
+        if ((x2 - x1) / step + 1) * ((y2 - y1) / step + 1) > MAX_GRID_VERTICES:
+            raise ValueError(f"plan is {(x2 - x1) * self.s:,.0f} m by {(y2 - y1) * self.s:,.0f} m, too large "
+                             f"to route as a home; check its units")
         xs = set(np.round(np.arange(x1, x2 + step, step), 6).tolist())
         ys = set(np.round(np.arange(y1, y2 + step, step), 6).tolist())
         for x, y in stops.values():
