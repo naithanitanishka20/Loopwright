@@ -36,6 +36,8 @@ def cmd_config(args):
 
 
 def cmd_solve(args):
+    from loopwright.io.edits import door_parts
+    from loopwright.output.installer import installer_csv, installer_data, render_installer
     from loopwright.output.overlay import render_svg
     from loopwright.output.schema import digest, write_json
     from loopwright.output.viewer import render_viewer
@@ -46,15 +48,18 @@ def cmd_solve(args):
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = _safe_stem(out["plan_id"])
+    doors = door_parts(plan)
     write_json(out, out_dir / f"{stem}.json")
     (out_dir / f"{stem}.svg").write_text(render_svg(model, out), encoding="utf-8")
     (out_dir / f"{stem}.html").write_text(render_viewer(model, out), encoding="utf-8")
+    (out_dir / f"{stem}.installer.html").write_text(render_installer(model, out, doors), encoding="utf-8")
+    (out_dir / f"{stem}.installer.csv").write_text(installer_csv(installer_data(out, doors)), encoding="utf-8")
     m = out["metrics"]
     failed = [c["id"] for c in out["validation"]["checks"] if c["pass"] is False]
     print(f"plan {stem}: hubs {m['hubs']} (bound {m['hub_lower_bound']}), cable {m['length_m']} m, "
           f"bends {m['bends']}, J {m['J']}, valid {out['validation']['valid']}"
           + (f" (failed: {', '.join(failed)})" if failed else "") + f", hash {digest(out)[:12]}")
-    print(f"wrote {out_dir / (stem + '.json')}, {stem}.svg and {stem}.html (viewer)")
+    print(f"wrote {out_dir / (stem + '.json')}, {stem}.svg, {stem}.html (viewer) and {stem}.installer.html/.csv")
     return 0
 
 

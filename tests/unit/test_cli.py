@@ -45,6 +45,26 @@ def test_batch_command_samples_runs_and_writes_both_reports(tmp_path, monkeypatc
     assert "# Batch report" in capsys.readouterr().out
 
 
+def test_solve_writes_design_drawing_viewer_and_installer_pack(tmp_path, capsys):
+    from shapely.geometry import box
+
+    plan = {"id": "flat-1", "m_per_unit": 1.0, "wall_depth": 0.1,
+            "inner": box(0, 0, 10, 4).wkt, "living": box(0.1, 0.1, 4.95, 3.9).wkt,
+            "bedroom": box(5.05, 0.1, 9.9, 3.9).wkt, "door": box(4.95, 1.5, 5.05, 2.4).wkt,
+            "wall": box(0, 0, 10, 4).difference(box(0.1, 0.1, 4.95, 3.9)).difference(box(5.05, 0.1, 9.9, 3.9)).wkt}
+    src = tmp_path / "flat.json"
+    src.write_text(json.dumps(plan), encoding="utf-8")
+
+    assert main(["solve", "--json", str(src), "--out", str(tmp_path / "out")]) == 0
+
+    out = tmp_path / "out"
+    assert sorted(p.name for p in out.iterdir()) == [
+        "flat-1.html", "flat-1.installer.csv", "flat-1.installer.html", "flat-1.json", "flat-1.svg"]
+    rows = (out / "flat-1.installer.csv").read_text(encoding="utf-8").strip().splitlines()
+    assert len(rows) == 1 + 2  # header and one row per device
+    assert json.loads((out / "flat-1.json").read_text(encoding="utf-8"))["validation"]["valid"] is True
+
+
 def test_validate_command_rejects_nan_in_json(tmp_path, capsys):
     path = tmp_path / "nan.json"
     path.write_text('{"schema": "loopwright/2", "plan_id": NaN}', encoding="utf-8")
