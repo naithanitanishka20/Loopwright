@@ -18,3 +18,4 @@ Every rule reading Loopwright depends on. The code reads the config flag; change
 | Q12 | How are entries scored: hidden plans, totals, per plan, or the demo? Is there a time limit? | Optimise totals; keep p95 under 2 s per plan | `time_limit_s = 10` | | | |
 | Q13 | May code written before the 48 hours start be used? | No | (process, not code) | | | |
 | Q14 | For the 100 m² cap, is room area the polygon area × scale², or the dimensions in the organisers' JSON? | Polygon area × scale² | `area_source = "polygon"` | | | |
+| Q15 | Some rooms connect to the rest of the home only through an interior "window" (ResPlan's own tools treat these as misclassified doors). May cables pass through such a window, or is the room unreachable? | Unreachable: follow the rule literally and report it (about 2% of plans, e.g. 11160) | `interior_window = "block"` (planned: `"door"`) | | | |

@@ -21,7 +21,7 @@ Report: `bench/phase4-sample1000.md`, rows in `bench/phase4-sample1000.jsonl`.
 
 | Cause | Plans | Examples | First guess |
 |---|---|---|---|
-| A leg can't be routed, even on the fallback grid | 23 | 11160, 407696, 742848, 384263 | Door polygons that don't fully cut their wall in the data; check `wall − door` around these doors |
+| A leg can't be routed, even on the fallback grid | 23 | 11160, 407696, 742848, 384263 | Checked 11160 with `scripts/diagnose_unreachable.py`: every door cuts its wall fully, but the walkable area splits in two and the kitchen (7.3 m²) sits alone. Its only link is probably an interior "window", which ResPlan's tools treat as a misclassified door. Rule question, logged as Q15 in `docs/assumptions.md`; until answered, report these rooms as unreachable instead of emitting an invalid leg |
 | V10 or V12 on plans that also need extra hubs | 5 | 624783, 557925, 3328, 682851 | Same as above, or a stranded room reached through a wall |
 | Solver and validator disagree on a passage (V05) | 2 | 15258, 11912 | Align the two passage tests or log the disagreement |
 | Room with no detected door | 1 | 10216 | Door detector miss |
