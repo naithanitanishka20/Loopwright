@@ -1,0 +1,188 @@
+"""The demo app in a browser, against a real local server."""
+import socket
+import threading
+import time
+
+import pytest
+
+uvicorn = pytest.importorskip("uvicorn", reason="install the serve extra")
+
+from loopwright.api.app import create_app  # noqa: E402
+
+pytestmark = pytest.mark.e2e
+
+
+def start_server(data_path):
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(create_app(data_path=data_path), host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.time() + 10
+    while not server.started and time.time() < deadline:
+        time.sleep(0.05)
+    return server, thread, f"http://127.0.0.1:{port}/"
+
+
+@pytest.fixture(scope="module")
+def app_url():
+    server, thread, url = start_server(None)
+    yield url
+    server.should_exit = True
+    thread.join(5)
+
+
+@pytest.fixture
+def page(browser, app_url):
+    page = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.goto(app_url)
+    page.wait_for_load_state("networkidle")
+    yield page
+    assert errors == []
+    page.close()
+
+
+def metric(page, name):
+    return page.locator(f'[data-metric="{name}"] b').inner_text()
+
+
+def wait_metric(page, name, value):
+    page.wait_for_function(
+        "([n, v]) => { const e = document.querySelector(`[data-metric='${n}'] b`); return e && e.textContent.startsWith(v); }",
+        arg=[name, value], timeout=15000)
+
+
+def drag_room(page, x0, y0, x1, y1):
+    """Drag on the drawing grid from (x0, y0) to (x1, y1), in metres."""
+    to_screen = """([x, y]) => { const svg = document.getElementById('plan'); const p = svg.createSVGPoint();
+                    p.x = x; p.y = y; const s = p.matrixTransform(svg.getScreenCTM()); return [s.x, s.y]; }"""
+    a, b = page.evaluate(to_screen, [x0, y0]), page.evaluate(to_screen, [x1, y1])
+    page.mouse.move(*a)
+    page.mouse.down()
+    page.mouse.move((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+    page.mouse.move(*b)
+    page.mouse.up()
+
+
+def draw_and_solve(page, door=True):
+    assert page.locator("#tab-draw").get_attribute("aria-selected") == "true"  # no dataset: the app opens on Draw
+    drag_room(page, 0, 0, 6, 6)
+    drag_room(page, 6, 0, 10, 6)
+    if door:
+        page.locator("#draw-doors input[type=checkbox]").check()
+    page.click("#draw-solve")
+    page.wait_for_selector('[data-metric="hubs"]')
+
+
+def click_on(page, selector):
+    """Click a point on an SVG shape's outline (its midpoint), not its bounding box."""
+    x, y = page.evaluate("""(sel) => { const e = document.querySelector(sel); const svg = document.getElementById('plan');
+        let p; if (e.getTotalLength) { const q = e.getPointAtLength(e.getTotalLength() / 2); p = svg.createSVGPoint(); p.x = q.x; p.y = q.y; }
+        else { const b = e.getBBox(); p = svg.createSVGPoint(); p.x = b.x + b.width / 2; p.y = b.y + b.height / 2; }
+        const s = p.matrixTransform(svg.getScreenCTM()); return [s.x, s.y]; }""", selector)
+    page.mouse.click(x, y)
+
+
+def test_only_the_chosen_source_pane_shows(page):
+    visible = lambda: [p for p in ("id", "upload", "draw") if page.locator(f"#pane-{p}").is_visible()]
+    assert visible() == ["draw"]
+    page.click("#tab-upload")
+    assert visible() == ["upload"]
+    assert page.locator("#edit-panel").is_hidden() and page.locator("#cut-panel").is_hidden()
+
+
+def test_drawing_two_rooms_with_a_door_gives_one_hub(page):
+    draw_and_solve(page)
+    wait_metric(page, "hubs", "1")
+    assert "1 hub" in page.locator("#explain").inner_text()
+    assert page.locator("#rules li").count() == 15
+    assert page.locator(".leg").count() == 3
+
+
+def test_without_the_door_the_rooms_need_two_hubs(page):
+    draw_and_solve(page, door=False)
+    wait_metric(page, "hubs", "2")
+
+
+def test_removing_the_door_in_edit_mode_then_undo(page):
+    draw_and_solve(page)
+    wait_metric(page, "hubs", "1")
+    page.click("#mode-edit")
+    click_on(page, '[data-door="0"]')
+    wait_metric(page, "hubs", "2")
+    page.click("#undo")
+    wait_metric(page, "hubs", "1")
+
+
+def test_changing_a_room_type_from_the_edit_panel(page):
+    draw_and_solve(page)
+    wait_metric(page, "hubs", "1")
+    page.click("#mode-edit")
+    page.select_option("#edit-room", "bedroom_0")
+    page.select_option("#edit-type", "bathroom")
+    page.click("#apply-type")
+    page.wait_for_function("() => document.querySelectorAll('[data-node]').length === 1", timeout=15000)
+
+
+def test_cutting_a_leg_keeps_every_device_fed(page):
+    draw_and_solve(page)
+    wait_metric(page, "hubs", "1")
+    page.click("#mode-cut")
+    click_on(page, '[data-hit-ring="H1"][data-hit-leg="2"]')
+    summary = page.locator("[data-cut-summary]")
+    summary.wait_for(timeout=10000)
+    assert "No device lost" in summary.inner_text()
+    assert page.locator(".leg.cut").count() == 1
+    assert "N" in page.locator("#cut").inner_text()
+
+
+def test_importing_a_plan_image(page, tmp_path):
+    from tests.unit.test_import_image import M_PER_PX, plan_image
+
+    img = tmp_path / "plan.png"
+    img.write_bytes(plan_image())
+    page.click("#tab-upload")
+    page.set_input_files("#file", str(img))
+    page.fill("#m-per-px", str(M_PER_PX))
+    page.click("#import")
+    page.wait_for_selector('[data-metric="hubs"]', timeout=20000)
+    wait_metric(page, "hubs", "1")
+    assert not page.locator("#notes-panel").is_hidden()
+    assert "guesses" in page.locator("#notes").inner_text()
+
+
+def test_installer_pack_opens_in_a_new_window(page):
+    draw_and_solve(page)
+    wait_metric(page, "hubs", "1")
+    with page.expect_popup() as popup:
+        page.click("#installer")
+    pack = popup.value
+    pack.wait_for_selector("#addresses", timeout=15000)
+    assert pack.locator("#addresses tbody tr").count() == 2
+    pack.close()
+
+
+@pytest.mark.dataset
+def test_zone_rule_switch_on_plan_16448(browser):
+    from tests.conftest import DATA
+
+    server, thread, url = start_server(str(DATA))
+    try:
+        page = browser.new_page(viewport={"width": 1400, "height": 1000})
+        page.goto(url)
+        page.wait_for_load_state("networkidle")
+        page.fill("#plan-id", "16448")
+        page.click("#load-id")
+        page.wait_for_selector('[data-metric="hubs"]', timeout=60000)
+        wait_metric(page, "hubs", "4")
+        page.select_option("#zone-rule", "through_rooms")
+        wait_metric(page, "hubs", "2")
+        assert page.locator(".room.flag").count() == 0
+        page.close()
+    finally:
+        server.should_exit = True
+        thread.join(5)
