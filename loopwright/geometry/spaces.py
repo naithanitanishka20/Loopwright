@@ -33,6 +33,7 @@ class PlanModel:
     spaces: list
     layers: dict
     diagnostics: list = field(default_factory=list)
+    wall_depth: float = 0.0
 
     @property
     def eligible(self):
@@ -84,4 +85,5 @@ def build_model(plan, settings=DEFAULT):
 
     layers = {k: valid(plan.get(k)) for k in LAYERS}
     layers["inner"] = inner
-    return PlanModel(plan.get("id"), s, spaces, layers, diagnostics)
+    wall_depth = float(plan.get("wall_depth") or 0) or 0.2 / s
+    return PlanModel(plan.get("id"), s, spaces, layers, diagnostics, wall_depth)
