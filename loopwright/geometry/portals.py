@@ -61,7 +61,11 @@ def door_graph(model):
             for b in range(a + 1, len(hit)):
                 link(hit[a], hit[b])
 
-    walls = valid(model.layers.get("wall"))
+    # Windows block passage too (rule: never through windows; assumptions Q15), so a
+    # window in a wall must not read as an open passage.
+    barriers = [g for g in (valid(model.layers.get("wall")), valid(model.layers.get("window")))
+                if g is not None and not g.is_empty]
+    walls = unary_union(barriers) if barriers else None
     dil = [sp.geom.buffer(wd * 0.55) for sp in spaces]
     tree2 = shapely.STRtree(dil)
     for i in range(len(spaces)):

@@ -112,6 +112,9 @@ def validate(plan, out, settings):
         barrier = walls_raw
         if barrier is not None and doors_raw is not None and not doors_raw.is_empty:
             barrier = barrier.difference(doors_raw)
+        windows_raw = _valid(plan.get("window"))
+        if windows_raw is not None and not windows_raw.is_empty:
+            barrier = windows_raw if barrier is None else unary_union([barrier, windows_raw])
         if zone_link == "strict":
             connectors = set()
         elif zone_link == "circulation":
