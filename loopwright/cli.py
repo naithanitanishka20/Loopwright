@@ -1,4 +1,4 @@
-"""Command line: loopwright solve | validate | index | batch | serve | config."""
+"""Command line: loopwright solve | validate | index | batch | results | serve | config."""
 import argparse
 import json
 import os
@@ -135,6 +135,17 @@ def cmd_batch(args):
     return 0
 
 
+def cmd_results(args):
+    from loopwright.results import results_file
+
+    text = results_file(args.runs)
+    out = pathlib.Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(text)
+    return 0
+
+
 def cmd_serve(args):
     import uvicorn
 
@@ -153,6 +164,9 @@ def main(argv=None):
     sub.add_parser("config", help="print the default settings as JSON")
     ix = sub.add_parser("index", help="write index.html listing every solved plan in a folder")
     ix.add_argument("folder", nargs="?", default="out")
+    rs = sub.add_parser("results", help="write the results table from batch records (.jsonl)")
+    rs.add_argument("runs", nargs="+", help="batch .jsonl files; each becomes a row named after the file")
+    rs.add_argument("--out", default="bench/results.md")
     sv = sub.add_parser("serve", help="run the demo app on this machine")
     sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
     sv.add_argument("--port", type=int, default=8000)
@@ -189,6 +203,8 @@ def main(argv=None):
         return cmd_index(args)
     if args.command == "serve":
         return cmd_serve(args)
+    if args.command == "results":
+        return cmd_results(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")
