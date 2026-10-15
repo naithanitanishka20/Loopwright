@@ -1,0 +1,9 @@
+"""The demo app page served by loopwright serve."""
+
+
+def render_app():
+    return """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loopwright</title></head>
+<body><main id="app"></main></body></html>
+"""

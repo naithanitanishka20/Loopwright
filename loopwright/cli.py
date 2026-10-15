@@ -1,4 +1,4 @@
-"""Command line: loopwright solve | validate | index | batch | config."""
+"""Command line: loopwright solve | validate | index | batch | serve | config."""
 import argparse
 import json
 import os
@@ -135,12 +135,28 @@ def cmd_batch(args):
     return 0
 
 
+def cmd_serve(args):
+    import uvicorn
+
+    from loopwright.api.app import create_app
+
+    data = args.data if pathlib.Path(args.data).exists() else None
+    app = create_app(data_path=data, allowed_hosts=("127.0.0.1", "localhost", args.host))
+    print(f"Loopwright on http://{args.host}:{args.port}/  (ResPlan: {data or 'not found; sketch, import and edit only'})")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="loopwright", description="Hub placement and closed-ring cable routing")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("config", help="print the default settings as JSON")
     ix = sub.add_parser("index", help="write index.html listing every solved plan in a folder")
     ix.add_argument("folder", nargs="?", default="out")
+    sv = sub.add_parser("serve", help="run the demo app on this machine")
+    sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip for plans by id (default: %(default)s)")
     b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
@@ -171,6 +187,8 @@ def main(argv=None):
         return cmd_batch(args)
     if args.command == "index":
         return cmd_index(args)
+    if args.command == "serve":
+        return cmd_serve(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")

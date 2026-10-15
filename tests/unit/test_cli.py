@@ -65,6 +65,18 @@ def test_solve_writes_design_drawing_viewer_and_installer_pack(tmp_path, capsys)
     assert json.loads((out / "flat-1.json").read_text(encoding="utf-8"))["validation"]["valid"] is True
 
 
+def test_serve_runs_the_app_on_localhost_by_default(monkeypatch, tmp_path):
+    import pytest
+
+    uvicorn = pytest.importorskip("uvicorn")
+    seen = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port, **kw: seen.update(host=host, port=port, app=app))
+
+    assert main(["serve", "--port", "8123", "--data", str(tmp_path / "missing.zip")]) == 0
+    assert (seen["host"], seen["port"]) == ("127.0.0.1", 8123)
+    assert seen["app"].title == "Loopwright"
+
+
 def test_validate_command_rejects_nan_in_json(tmp_path, capsys):
     path = tmp_path / "nan.json"
     path.write_text('{"schema": "loopwright/2", "plan_id": NaN}', encoding="utf-8")
