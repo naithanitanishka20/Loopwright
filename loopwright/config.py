@@ -1,13 +1,20 @@
+"""Every rule reading as a setting. Defaults mirror docs/assumptions.md (Q1-Q14).
+
+Solver code reads these settings; it never hard-codes a rule reading. When an
+answer arrives from the organisers, change the default here in its own commit
+and record the answer in docs/assumptions.md.
+"""
 from dataclasses import dataclass, fields, replace
 import math
 
-
+# Values each setting accepts. A tuple lists only the readings the solver
+# implements; add a value together with the code that handles it.
 ZONE_LINKS = ("strict", "circulation", "through_rooms")
 PASS_THROUGH = ("circulation", "bathroom", "stair", "other_zones")
 INPUT_FORMATS = ("auto", "json", "resplan")
 NODE_RULES = ("pole",)
 HUB_MOUNTS = ("free",)
-LIVING_PIECES = ("merge", "separate")
+LIVING_PIECES = ("merge", "split")
 AXIS_FRAMES = ("drawing",)
 INFEASIBLE_OUTPUTS = ("flag_and_relaxed",)
 AREA_SOURCES = ("polygon",)
@@ -34,15 +41,20 @@ def _boolean(name, value):
 
 @dataclass(frozen=True)
 class Settings:
+    # Q1: how a zone's rooms must be joined
     zone_link: str = "strict"
+    # Q2: weights in J = L + bend_m*B + crossing_m*X + overlap_factor*O
     bend_m: float = 0.3
     crossing_m: float = 3.0
     overlap_factor: float = 2.0
+    # Q3: what counts as a bend, an overlap, a crossing
     bend_at_node: bool = True
     lane_gap_m: float = 0.4
     count_self_crossings: bool = True
+    # Q4 and the area cap
     max_nodes: int = 5
     max_area_m2: float = 100.0
+    # Q5-Q14
     input_format: str = "auto"
     node_rule: str = "pole"
     hub_mount: str = "free"
@@ -53,6 +65,7 @@ class Settings:
     infeasible_output: str = "flag_and_relaxed"
     time_limit_s: float = 10.0
     area_source: str = "polygon"
+    # Geometry constants (not rule readings)
     clearance_m: float = 0.10
     sliver_m2: float = 0.5
 
@@ -90,15 +103,15 @@ class Settings:
         _finite_number("clearance_m", self.clearance_m, 0)
         _finite_number("sliver_m2", self.sliver_m2, 0)
 
-    def with_overrides(self, **overrides):
-        known = {field.name for field in fields(self)}
-        unknown = set(overrides) - known
+    def with_overrides(self, **kw):
+        known = {f.name for f in fields(self)}
+        unknown = set(kw) - known
         if unknown:
             raise ValueError(f"unknown settings: {sorted(unknown)}")
-        return replace(self, **{key: value for key, value in overrides.items() if value is not None})
+        return replace(self, **{k: v for k, v in kw.items() if v is not None})
 
     def as_dict(self):
-        return {field.name: getattr(self, field.name) for field in fields(self)}
+        return {f.name: getattr(self, f.name) for f in fields(self)}
 
 
 DEFAULT = Settings()

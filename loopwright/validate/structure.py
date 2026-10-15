@@ -1,3 +1,9 @@
+"""Structural checks on a loopwright/2 document, before any rule is checked.
+
+Types, required keys from docs/schema-v2.json, finite numbers, no booleans used
+as numbers, and no NaN or Infinity in the JSON. Needs no plan, so it runs on any
+output file; rules.py then checks V00-V14 against the plan.
+"""
 from __future__ import annotations
 
 import json
@@ -245,4 +251,4 @@ def load_design(path):
 
 
 def _reject_constant(value):
-    raise ValueError(f"invalid JSON number: {value}")
+    raise ValueError(f"non-standard number {value}")

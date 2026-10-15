@@ -81,3 +81,31 @@ def test_download_rejects_unpinned_host(tmp_path):
 
     with pytest.raises(ValueError, match="host"):
         fetcher.download(tmp_path / "ResPlan.zip", "0" * 64, opener=opener)
+
+
+def _capture(seen):
+    def fake_download(destination, sha256, *, timeout):
+        seen["sha256"] = sha256
+        return destination
+
+    return fake_download
+
+
+def test_main_defaults_to_the_pinned_digest(monkeypatch):
+    seen = {}
+    monkeypatch.delenv("LOOPWRIGHT_RESPLAN_SHA256", raising=False)
+    monkeypatch.setattr(fetcher, "download", _capture(seen))
+
+    fetcher.main([])
+
+    assert seen["sha256"] == fetcher.PINNED_SHA256
+
+
+def test_main_reads_the_digest_from_the_environment(monkeypatch):
+    seen = {}
+    monkeypatch.setenv("LOOPWRIGHT_RESPLAN_SHA256", "a" * 64)
+    monkeypatch.setattr(fetcher, "download", _capture(seen))
+
+    fetcher.main([])
+
+    assert seen["sha256"] == "a" * 64

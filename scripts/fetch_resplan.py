@@ -1,4 +1,7 @@
-"""Fetch the pinned ResPlan archive after verifying its SHA-256 digest."""
+"""Download ResPlan.zip (about 100 MB, CC BY 4.0) into data/ and verify its SHA-256.
+
+Usage: python scripts/fetch_resplan.py [--sha256 DIGEST] [--timeout SECONDS]
+"""
 
 from __future__ import annotations
 
@@ -13,6 +16,8 @@ import urllib.request
 
 
 URL = "https://raw.githubusercontent.com/m-agour/ResPlan/main/ResPlan.zip"
+# SHA-256 of ResPlan.zip as served at URL on 15 Oct 2026 (100,106,537 bytes).
+PINNED_SHA256 = "f718de8865e51bbe93b49b584798e3c536ed6b4b8a5d32f01b56812f389aeb46"
 DEST = pathlib.Path(__file__).resolve().parent.parent / "data" / "ResPlan.zip"
 DEFAULT_TIMEOUT_S = 30
 MAX_BYTES = 200 * 1024 * 1024
@@ -87,11 +92,9 @@ def download(destination, sha256, *, opener=urllib.request.urlopen, timeout=DEFA
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sha256", default=os.environ.get("LOOPWRIGHT_RESPPLAN_SHA256"))
+    parser.add_argument("--sha256", default=os.environ.get("LOOPWRIGHT_RESPLAN_SHA256", PINNED_SHA256))
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S)
     args = parser.parse_args(argv)
-    if args.sha256 is None:
-        parser.error("--sha256 or LOOPWRIGHT_RESPPLAN_SHA256 is required")
     if args.timeout <= 0:
         parser.error("--timeout must be greater than zero")
     try:
