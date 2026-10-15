@@ -1,45 +1,51 @@
 # Loopwright
 
-Hub placement and closed-ring cable routing on residential floor plans (Problem IA, UR Hackathon 2026H2). Confidential under Rule 6(a): keep this repository private.
+Loopwright is the foundation for hub placement and closed-ring cable routing on residential floor plans.
 
-Given a floor plan, Loopwright decides how many hubs, where each goes, which rooms and nodes each serves, the visiting order, and an axis-aligned cable route for every closed ring. Designs are ranked the organisers' way: fewest hubs first, then lowest cost J.
+This checkout contains the configuration model, output validator, schema, and safe ResPlan download helper. The full optimizer, geometry engine, and obstacle-aware routing engine are not implemented yet.
+
+It also includes two small planning primitives: the hub-count lower bound and an obstacle-free axis-aligned path helper.
 
 ## Setup
 
 ```bash
 python -m venv .venv
-.venv/Scripts/activate        # Windows; use .venv/bin/activate on macOS/Linux
+.venv/Scripts/activate       # Windows
+.venv/bin/activate           # macOS/Linux
 python -m pip install -e ".[dev]"
-python scripts/fetch_resplan.py   # downloads data/ResPlan.zip (~100 MB, not committed)
 python -m pytest -q
 ```
 
-## Use
+Install browser tooling only when running the optional smoke test:
 
 ```bash
-loopwright solve --id 14433 --out out/          # writes out/14433.json and out/14433.svg
-loopwright validate out/14433.json --id 14433   # independent checks V00-V14
+python -m pip install -e ".[dev,e2e]"
+playwright install chromium
+python -m pytest -m e2e -q
 ```
 
-Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`.
+## Commands
+
+```bash
+loopwright config
+loopwright validate path/to/design.json
+```
+
+The validator accepts schema `loopwright/2` and rejects malformed structure, non-finite numbers, and boolean values used as numbers.
+
+The dataset helper requires a trusted SHA-256 digest. Set `LOOPWRIGHT_RESPPLAN_SHA256` or pass `--sha256` before downloading:
+
+```bash
+python scripts/fetch_resplan.py --sha256 <trusted-digest>
+```
 
 ## Layout
 
-| Path | What |
-|------|------|
-| `loopwright/config.py` | Every rule reading as a setting (Q1-Q14) |
-| `loopwright/io/` | ResPlan loader (restricted unpickler) and the organisers' JSON adapter |
-| `loopwright/geometry/` | Healing, scale, spaces, nodes |
-| `loopwright/optimize/` | Lower bound, zones, exact hub count |
-| `loopwright/routing/` | Leg routing |
-| `loopwright/validate/` | Independent validator and scorer |
-| `loopwright/output/` | JSON (schema `loopwright/2`) and SVG overlay |
-| `docs/` | Assumptions, schema, testing playbook, phase notes |
-
-## Status
-
-See `docs/phases/`. Each phase ends with a tag (`phase-1`, `phase-2`, ...) that is pushed and tested before the next merge.
-
-## Credits
-
-ResPlan dataset (Abouagour and Garyfallidis, 2025; CC BY 4.0).
+- `loopwright/config.py`: validated rule settings.
+- `loopwright/validator.py`: structural output checks.
+- `loopwright/cli.py`: config and validation commands.
+- `loopwright/solver.py`: hub-count lower bound.
+- `loopwright/routing.py`: basic axis-aligned path construction.
+- `docs/schema-v2.json`: output schema.
+- `docs/assumptions.md`: open rule decisions.
+- `scripts/fetch_resplan.py`: timeout-limited, checksum-verified download.

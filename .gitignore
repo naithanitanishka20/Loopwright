@@ -7,6 +7,7 @@ venv/
 build/
 dist/
 .pytest_cache/
+.pytest-tmp*/
 .hypothesis/
 
 # Data and outputs (ResPlan is ~100 MB; fetch it with scripts/fetch_resplan.py)
@@ -17,5 +18,11 @@ bench/runs/
 # Editors and OS
 .vscode/
 .idea/
+.codex/
+.agents/
+.cursor/
+.claude/
+.aider*
+.github/copilot/
 .DS_Store
 Thumbs.db

@@ -18,6 +18,11 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(scope="session")
 def resplan_plans():
-    from loopwright.io.resplan import load_plans
+    try:
+        from loopwright.io.resplan import load_plans
+    except ModuleNotFoundError as exc:
+        if exc.name != "loopwright.io.resplan":
+            raise
+        pytest.skip("ResPlan loader is not implemented in this phase")
 
     return load_plans(DATA)

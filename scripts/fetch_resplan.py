@@ -1,16 +1,105 @@
-"""Download ResPlan.zip (about 100 MB, CC BY 4.0) into data/.
+"""Fetch the pinned ResPlan archive after verifying its SHA-256 digest."""
 
-Usage: python scripts/fetch_resplan.py
-"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
 import pathlib
+import re
+import tempfile
+import urllib.parse
 import urllib.request
 
+
 URL = "https://raw.githubusercontent.com/m-agour/ResPlan/main/ResPlan.zip"
-dest = pathlib.Path(__file__).resolve().parent.parent / "data" / "ResPlan.zip"
-dest.parent.mkdir(exist_ok=True)
-if dest.exists():
-    print(f"already there: {dest}")
-else:
-    print(f"downloading {URL}")
-    urllib.request.urlretrieve(URL, dest)
-    print(f"saved {dest} ({dest.stat().st_size:,} bytes)")
+DEST = pathlib.Path(__file__).resolve().parent.parent / "data" / "ResPlan.zip"
+DEFAULT_TIMEOUT_S = 30
+MAX_BYTES = 200 * 1024 * 1024
+CHUNK_SIZE = 1024 * 1024
+EXPECTED_HOST = "raw.githubusercontent.com"
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _check_url(url):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname != EXPECTED_HOST:
+        raise ValueError("download URL must use the expected HTTPS host")
+
+
+def _check_digest(digest):
+    if not isinstance(digest, str) or not SHA256_PATTERN.fullmatch(digest.lower()):
+        raise ValueError("sha256 must be a 64-character hexadecimal checksum")
+    return digest.lower()
+
+
+def _file_digest(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(CHUNK_SIZE), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def download(destination, sha256, *, opener=urllib.request.urlopen, timeout=DEFAULT_TIMEOUT_S):
+    destination = pathlib.Path(destination)
+    expected = _check_digest(sha256)
+    _check_url(URL)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    if destination.is_symlink():
+        raise ValueError(f"refusing to write through symlink: {destination}")
+    if destination.exists():
+        if _file_digest(destination) == expected:
+            return destination
+        raise ValueError(f"existing file checksum does not match: {destination}")
+
+    temporary = None
+    try:
+        request = urllib.request.Request(URL, headers={"User-Agent": "loopwright-fetch/1"})
+        with opener(request, timeout=timeout) as response:
+            final_url = response.geturl()
+            _check_url(final_url)
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=destination.parent, prefix=destination.name + ".", suffix=".part", delete=False
+            ) as sink:
+                temporary = pathlib.Path(sink.name)
+                digest = hashlib.sha256()
+                size = 0
+                while True:
+                    chunk = response.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    if size > MAX_BYTES:
+                        raise ValueError("download exceeds the maximum allowed size")
+                    sink.write(chunk)
+                    digest.update(chunk)
+        if digest.hexdigest() != expected:
+            raise ValueError("download checksum does not match")
+        os.replace(temporary, destination)
+        temporary = None
+        return destination
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sha256", default=os.environ.get("LOOPWRIGHT_RESPPLAN_SHA256"))
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S)
+    args = parser.parse_args(argv)
+    if args.sha256 is None:
+        parser.error("--sha256 or LOOPWRIGHT_RESPPLAN_SHA256 is required")
+    if args.timeout <= 0:
+        parser.error("--timeout must be greater than zero")
+    try:
+        path = download(DEST, args.sha256, timeout=args.timeout)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print(f"saved {path}")
+
+
+if __name__ == "__main__":
+    main()
