@@ -1,0 +1,87 @@
+"""Turn a raw plan dict into spaces with metre areas.
+
+Room ids are <type>_<k>, where k counts that type's polygon parts (at least the
+sliver size) in input order. All living pieces merge into living_0 unless
+settings.living_pieces == "split" (assumptions Q9).
+"""
+import math
+from dataclasses import dataclass, field
+
+from shapely.ops import unary_union
+
+from loopwright.config import DEFAULT
+from loopwright.geometry.heal import polygons, valid
+
+ELIGIBLE_TYPES = ("living", "kitchen", "bedroom", "storage")
+OTHER_TYPES = ("bathroom", "stair")
+LAYERS = ("wall", "door", "window", "balcony", "front_door", "garden", "pool", "parking")
+
+
+@dataclass
+class Space:
+    id: str
+    type: str
+    geom: object
+    area_m2: float
+    eligible: bool
+
+
+@dataclass
+class PlanModel:
+    plan_id: object
+    m_per_unit: float
+    spaces: list
+    layers: dict
+    diagnostics: list = field(default_factory=list)
+
+    @property
+    def eligible(self):
+        return [s for s in self.spaces if s.eligible]
+
+    def space(self, space_id):
+        return next(s for s in self.spaces if s.id == space_id)
+
+
+def scale(plan, inner):
+    if plan.get("m_per_unit"):
+        return float(plan["m_per_unit"])
+    area = float(plan.get("area") or 0)
+    if area <= 0 or inner.area <= 0:
+        raise ValueError("plan needs a positive 'area' (m²) to compute the scale")
+    return math.sqrt(area / inner.area)
+
+
+def build_model(plan, settings=DEFAULT):
+    inner = valid(plan.get("inner"))
+    if inner is None or inner.is_empty:
+        raise ValueError("plan has no 'inner' boundary")
+    s = scale(plan, inner)
+    s2 = s * s
+    sliver = settings.sliver_m2 / s2
+    diagnostics = []
+    repaired = sum(1 for k in ELIGIBLE_TYPES + OTHER_TYPES + LAYERS
+                   if plan.get(k) is not None and not plan[k].is_empty and not plan[k].is_valid)
+    if repaired:
+        diagnostics.append({"code": "REPAIRED_GEOMETRY", "layers": repaired})
+
+    spaces = []
+    living = polygons(plan.get("living"), sliver)
+    if living and settings.living_pieces == "merge":
+        geom = unary_union(living)
+        spaces.append(Space("living_0", "living", geom, geom.area * s2, True))
+    else:
+        for i, p in enumerate(living):
+            spaces.append(Space(f"living_{i}", "living", p, p.area * s2, True))
+    for t in ("kitchen", "bedroom", "storage") + OTHER_TYPES:
+        for i, p in enumerate(polygons(plan.get(t), sliver)):
+            spaces.append(Space(f"{t}_{i}", t, p, p.area * s2, t in ELIGIBLE_TYPES))
+
+    for sp in spaces:
+        if sp.eligible and sp.area_m2 > settings.max_area_m2 + 1e-9:
+            diagnostics.append({"code": "ROOM_OVER_CAP", "room": sp.id, "area_m2": round(sp.area_m2, 1)})
+    if not any(sp.eligible for sp in spaces):
+        diagnostics.append({"code": "NO_ELIGIBLE_ROOM"})
+
+    layers = {k: valid(plan.get(k)) for k in LAYERS}
+    layers["inner"] = inner
+    return PlanModel(plan.get("id"), s, spaces, layers, diagnostics)
