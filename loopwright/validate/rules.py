@@ -51,7 +51,7 @@ def rebuild_rooms(plan, m_per_unit, living_pieces="merge", sliver_m2=0.5):
 
 def _check(results, rule, ok, detail="", where=None):
     entry = {"id": rule, "pass": bool(ok)}
-    if detail:
+    if detail and not ok:
         entry["detail"] = detail
     if where:
         entry["where"] = where

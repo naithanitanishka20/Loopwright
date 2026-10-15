@@ -25,8 +25,13 @@ def render_svg(model, out, width=900):
         return ((x - x1) * k + pad, (y - y1) * k + pad)
 
     zone_of, colour_of = {}, {}
+    by_role = len(out["hubs"]) > len(ZONE_COLOURS)
     for i, hub in enumerate(out["hubs"]):
-        colour = ZONE_COLOURS[i % len(ZONE_COLOURS)]
+        if by_role:  # past three zones colour by role; the H labels tell them apart
+            living = any(r.startswith("living") for r in hub["zone"])
+            colour = ZONE_COLOURS[0] if living else ZONE_COLOURS[1 if len(hub["zone"]) == 1 else 2]
+        else:
+            colour = ZONE_COLOURS[i]
         colour_of[hub["id"]] = colour
         for r in hub["zone"]:
             zone_of[r] = (hub["id"], colour)

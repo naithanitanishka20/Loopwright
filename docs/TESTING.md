@@ -29,6 +29,15 @@ Each fix commit names the problem it fixes and, where possible, adds a test that
 | Browser and visual | `python -m pytest -q tests/e2e`, then open the SVG and viewer | The overlay renders, labels readable, no overlaps |
 | Test quality | Read the tests | Tests that can't fail, duplicated tests |
 
+## Browser tests (Playwright)
+
+```bash
+python -m pip install -e ".[e2e]"
+python -m pytest -q tests/e2e
+```
+
+They use Playwright's own Chromium if you ran `python -m playwright install chromium`, otherwise your installed Edge or Chrome. Without Playwright they skip.
+
 ## Phase-specific checks
 
 See `docs/phases/PHASE-N.md` for what each phase delivered, how to run it, and what to try to break.

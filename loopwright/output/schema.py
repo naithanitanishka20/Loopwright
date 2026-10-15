@@ -24,6 +24,12 @@ def canonical_json(obj, exclude=("runtime_s",)):
     return json.dumps(_round(strip(obj)), ensure_ascii=False, separators=(",", ":"), sort_keys=False)
 
 
+def safe_stem(plan_id):
+    """A file name from a plan id that can't leave the output folder."""
+    stem = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(plan_id))[:64]
+    return stem or "plan"
+
+
 def digest(obj):
     return hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
 

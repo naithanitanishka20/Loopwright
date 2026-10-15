@@ -17,8 +17,10 @@ python -m pytest -q
 ## Use
 
 ```bash
-loopwright solve --id 14433 --out out/          # writes out/14433.json and out/14433.svg
+loopwright solve --id 14433 --out out/          # out/14433.json, .svg and .html (viewer)
 loopwright validate out/14433.json --id 14433   # independent checks V00-V14
+loopwright index out/                           # out/index.html listing every solved plan
+loopwright batch --split test --workers 8       # the ResPlan test split, failures grouped by cause
 ```
 
 Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`.

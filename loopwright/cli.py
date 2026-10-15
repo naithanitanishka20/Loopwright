@@ -24,24 +24,47 @@ def _settings(args):
     return DEFAULT.with_overrides(zone_link=args.zone_link, max_nodes=args.max_nodes, max_area_m2=args.max_area)
 
 
+def _safe_stem(plan_id):
+    from loopwright.output.schema import safe_stem
+
+    return safe_stem(plan_id)
+
+
 def cmd_solve(args):
     from loopwright.output.overlay import render_svg
     from loopwright.output.schema import digest, write_json
+    from loopwright.output.viewer import render_viewer
     from loopwright.solve import solve
 
     plan = _load_plan(args)
     out, model = solve(plan, _settings(args))
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = str(out["plan_id"])
+    stem = _safe_stem(out["plan_id"])
     write_json(out, out_dir / f"{stem}.json")
     (out_dir / f"{stem}.svg").write_text(render_svg(model, out), encoding="utf-8")
+    (out_dir / f"{stem}.html").write_text(render_viewer(model, out), encoding="utf-8")
     m = out["metrics"]
     failed = [c["id"] for c in out["validation"]["checks"] if c["pass"] is False]
     print(f"plan {stem}: hubs {m['hubs']} (bound {m['hub_lower_bound']}), cable {m['length_m']} m, "
           f"bends {m['bends']}, J {m['J']}, valid {out['validation']['valid']}"
           + (f" (failed: {', '.join(failed)})" if failed else "") + f", hash {digest(out)[:12]}")
-    print(f"wrote {out_dir / (stem + '.json')} and {out_dir / (stem + '.svg')}")
+    print(f"wrote {out_dir / (stem + '.json')}, {stem}.svg and {stem}.html (viewer)")
+    return 0
+
+
+def cmd_index(args):
+    from loopwright.output.viewer import render_index
+
+    folder = pathlib.Path(args.folder)
+    designs = []
+    for path in sorted(folder.glob("*.json")):
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        if d.get("schema") == "loopwright/2" and (folder / f"{_safe_stem(d['plan_id'])}.html").exists():
+            designs.append(d)
+    (folder / "index.html").write_text(render_index(designs), encoding="utf-8")
+    print(f"wrote {folder / 'index.html'} listing {len(designs)} plans")
     return 0
 
 
@@ -85,6 +108,8 @@ def cmd_batch(args):
 def main(argv=None):
     p = argparse.ArgumentParser(prog="loopwright", description="Hub placement and closed-ring cable routing")
     sub = p.add_subparsers(dest="command", required=True)
+    ix = sub.add_parser("index", help="write index.html listing every solved plan in a folder")
+    ix.add_argument("folder", nargs="?", default="out")
     b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
@@ -111,6 +136,8 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.command == "batch":
         return cmd_batch(args)
+    if args.command == "index":
+        return cmd_index(args)
     if not args.json and not args.id:
         p.error("give --id (ResPlan) or --json (organisers' file)")
     return cmd_solve(args) if args.command == "solve" else cmd_validate(args)
