@@ -56,6 +56,55 @@ def _brute_force(areas, cap_area, cap_nodes):
     return best[0]
 
 
+def _connected(rooms, edges):
+    rooms = list(rooms)
+    seen, stack = {rooms[0]}, [rooms[0]]
+    while stack:
+        u = stack.pop()
+        for v in rooms:
+            if v not in seen and (min(u, v), max(u, v)) in edges:
+                seen.add(v)
+                stack.append(v)
+    return len(seen) == len(rooms)
+
+
+def _brute_force_linked(areas, edges, cap_area, cap_nodes):
+    """Smallest partition into connected zones within both caps, by trying every set partition."""
+    best = [INF]
+
+    def parts(items):
+        if not items:
+            yield []
+            return
+        first, rest = items[0], items[1:]
+        for sub in parts(rest):
+            for i in range(len(sub)):
+                yield sub[:i] + [[first] + sub[i]] + sub[i + 1:]
+            yield [[first]] + sub
+
+    for p in parts(list(range(len(areas)))):
+        if len(p) < best[0] and all(
+            len(z) <= cap_nodes and sum(areas[k] for k in z) <= cap_area + 1e-9 and _connected(z, edges) for z in p
+        ):
+            best[0] = len(p)
+    return best[0]
+
+
+@hsettings(max_examples=150, deadline=None)
+@given(st.data())
+def test_hub_minimum_with_door_links_matches_brute_force(data):
+    n = data.draw(st.integers(min_value=1, max_value=6))
+    areas = data.draw(st.lists(st.floats(min_value=1, max_value=99, allow_nan=False), min_size=n, max_size=n))
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    edges = set(data.draw(st.lists(st.sampled_from(pairs), unique=True)) if pairs else [])
+
+    def connected(mask):
+        return _connected([k for k in range(n) if mask >> k & 1], edges)
+
+    feasible = feasible_zones(areas, DEFAULT, connected=connected, relax_singletons=False)
+    assert min_hubs(n, feasible)[0] == _brute_force_linked(areas, edges, DEFAULT.max_area_m2, DEFAULT.max_nodes)
+
+
 @hsettings(max_examples=200, deadline=None)
 @given(st.lists(st.floats(min_value=1, max_value=99, allow_nan=False), min_size=1, max_size=7))
 def test_subset_search_matches_brute_force(areas):

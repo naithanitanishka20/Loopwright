@@ -63,6 +63,12 @@ def cmd_batch(args):
     from loopwright.io.resplan import load_plans
 
     plans = load_plans(args.data)
+    if args.split:
+        split_file = pathlib.Path(args.split_file or pathlib.Path(args.data).with_name("split.json"))
+        with open(split_file, encoding="utf-8") as f:
+            wanted = set(json.load(f)[args.split])
+        plans = [p for p in plans if p.get("id") in wanted]
+        print(f"{args.split} split: {len(plans)} plans")
     if args.sample:
         plans = sample(plans, args.sample, args.seed)
     settings = _settings(args)
@@ -81,6 +87,8 @@ def main(argv=None):
     sub = p.add_subparsers(dest="command", required=True)
     b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
     b.add_argument("--data", default=DEFAULT_DATA)
+    b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
+    b.add_argument("--split-file", help="path to split.json (default: next to --data)")
     b.add_argument("--sample", type=int, help="random sample size (default: all plans)")
     b.add_argument("--seed", type=int, default=7)
     b.add_argument("--workers", type=int, default=4)

@@ -49,6 +49,43 @@ def test_run_outside_the_building_fails_v12():
     assert "V12" in _failed(plan, bad)
 
 
+def test_a_door_through_a_thick_wall_still_links_rooms():
+    # Regression for plans 15258 and 11912: the wall at the door is thicker than
+    # wall_depth says, so grown room outlines never meet, but the door joins them.
+    from tests.helpers import thick_wall_plan
+
+    plan = thick_wall_plan()
+    out, _ = solve(plan)
+    assert out["metrics"]["hubs"] == 1
+    assert out["validation"]["valid"] is True, [c for c in out["validation"]["checks"] if c["pass"] is False]
+
+
+def test_slipping_through_a_crack_that_is_no_door_fails_v13():
+    # A 0.15 m crack in the middle wall is neither a door nor an open passage
+    # (passages must be at least two wall depths, 0.2 m, long), so a run through
+    # it changes space illegally even though it touches no wall.
+    from shapely.geometry import box
+
+    plan, out = _solved()
+    cracked = dict(plan, wall=plan["wall"].difference(box(4.9, 3.0, 5.1, 3.15)))
+    bad = copy.deepcopy(out)
+    ring = bad["rings"][0]
+    leg = next(l for l in ring["legs"] if min(p[0] for p in l["path"]) < 4.95 < max(p[0] for p in l["path"]))
+    a, b = leg["path"][0], leg["path"][-1]
+    leg["path"] = [a, [a[0], 3.075], [b[0], 3.075], b]
+    failed = {c["id"] for c in validate(cracked, bad, DEFAULT)["checks"] if c["pass"] is False}
+    assert "V13" in failed and "V10" not in failed
+
+
+def test_failing_legs_are_located_for_the_viewer():
+    plan, out = _solved()
+    bad = copy.deepcopy(out)
+    leg = bad["rings"][0]["legs"][1]
+    leg["path"] = [leg["path"][0], [leg["path"][-1][0], leg["path"][-1][1] + 0.5]]
+    check = next(c for c in validate(plan, bad, DEFAULT)["checks"] if c["id"] == "V14")
+    assert check["pass"] is False and check["where"] == [{"ring": "H1", "leg": 2}]
+
+
 def test_greedy_never_beats_exact_and_can_lose():
     # A star around the living room: bedrooms link only to it.
     adj = {"living": {"b1", "b2", "b3"}, "b1": {"living"}, "b2": {"living"}, "b3": {"living"}}

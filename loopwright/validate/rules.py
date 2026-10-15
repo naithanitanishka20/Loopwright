@@ -121,10 +121,11 @@ def validate(plan, out, settings):
             connectors = {r for r in rooms if r.split("_")[0] in ("bathroom", "stair")}
         else:
             connectors = set(rooms)
+        door_parts = [d for d in _flat(doors_raw) if not d.is_empty] if doors_raw is not None else []
         disconnected = []
         for h in out["hubs"]:
             zone = [r for r in h["zone"] if r in rooms]
-            if len(zone) > 1 and not _zone_connected(zone, connectors, rooms, barrier, wd):
+            if len(zone) > 1 and not _zone_connected(zone, connectors, rooms, barrier, wd, door_parts):
                 disconnected.append(h["id"])
         _check(checks, "V05", not disconnected, f"zones not connected under '{zone_link}': {disconnected}")
 
@@ -161,47 +162,129 @@ def validate(plan, out, settings):
 
     # Geometry rules on every leg
     layers = {k: _valid(plan.get(k)) for k in ("wall", "door", "window", "balcony", "garden", "pool", "parking", "front_door")}
-    doors = unary_union([g for g in (layers["door"],) if g is not None and not g.is_empty]) if layers["door"] is not None else None
+    doors = layers["door"]
     walls = layers["wall"]
     if walls is not None and doors is not None and not doors.is_empty:
         walls = walls.difference(doors.buffer(EPS_LEN * 10))
     windows = layers["window"]
-    allowed = _valid(plan.get("inner"))
+    building = _building(plan, rooms, s)
+    allowed = building
     for k in ("balcony", "garden", "pool", "parking"):
         if layers[k] is not None and not layers[k].is_empty:
             allowed = allowed.difference(layers[k])
     allowed = allowed.buffer(EPS_LEN * 10)
-    v10, v11, v12, v14 = [], [], [], []
+    wd = float(plan.get("wall_depth") or 0) or 0.2 / s
+    portal_zone, label = _portals(rooms, building, walls, windows, doors, wd, s)
+    found = {"V10": [], "V11": [], "V12": [], "V13": [], "V14": []}
     for ring in out["rings"]:
         for leg in ring["legs"]:
             path = [tuple(p) for p in leg["path"]]
-            where = f"{ring['hub']} leg {leg['n']}"
-            for (x0, y0), (x1, y1) in zip(path, path[1:]):
-                if abs(x1 - x0) > EPS_LEN and abs(y1 - y0) > EPS_LEN:
-                    v14.append(where)
-                    break
+            where = {"ring": ring["hub"], "leg": leg["n"]}
+            if any(abs(x1 - x0) > EPS_LEN and abs(y1 - y0) > EPS_LEN for (x0, y0), (x1, y1) in zip(path, path[1:])):
+                found["V14"].append(where)
             line = LineString(path) if len(path) > 1 else None
             if line is None or line.length == 0:
                 continue
             if walls is not None and not walls.is_empty and line.intersection(walls).length > 1e-6:
-                v10.append(where)
+                found["V10"].append(where)
             if windows is not None and not windows.is_empty and line.intersection(windows).length > 1e-6:
-                v11.append(where)
+                found["V11"].append(where)
             if not allowed.covers(line):
-                v12.append(where)
-    _check(checks, "V10", not v10, f"legs crossing walls: {v10}")
-    _check(checks, "V11", not v11, f"legs touching windows: {v11}")
-    _check(checks, "V12", not v12, f"legs leaving the building or entering external areas: {v12}")
-    checks.append({"id": "V13", "pass": None, "detail": "space changes at portals need the door graph (Phase 3)"})
-    _check(checks, "V14", not v14, f"legs with a diagonal segment: {v14}")
+                found["V12"].append(where)
+            off = _space_changes_off_portal(line, label, portal_zone, s)
+            if off:
+                found["V13"].append({**where, "at": off[:3]})
+    texts = {"V10": "legs crossing walls", "V11": "legs touching windows",
+             "V12": "legs leaving the building or entering external areas",
+             "V13": "legs changing space away from any door or open passage", "V14": "legs with a diagonal segment"}
+    for rule in ("V10", "V11", "V12", "V13", "V14"):
+        hits = found[rule]
+        detail = f"{texts[rule]}: " + ", ".join(f"{w['ring']} leg {w['leg']}" for w in hits) if hits else ""
+        _check(checks, rule, not hits, detail, hits or None)
 
     valid = all(c["pass"] is not False for c in checks)
     return {"valid": valid, "checks": checks}
 
 
-def _linked(a, b, barrier, wd):
-    """Rooms a and b share a passage: their grown outlines overlap somewhere no wall covers."""
-    gap = a.buffer(wd * 0.6).intersection(b.buffer(wd * 0.6))
+def _portals(rooms, building, walls, windows, doors, wd, s):
+    """Where a cable may change space (doors, and open passages at least two wall
+    depths long), plus a function that names the space a point is in."""
+    spaces = dict(rooms)
+    rest = building.difference(unary_union(list(rooms.values()))) if rooms else building
+    for g in (walls, windows, doors):
+        if g is not None and not g.is_empty:
+            rest = rest.difference(g)
+    rest = rest.buffer(-0.25 * wd).buffer(0.25 * wd)
+    if rest.area * s * s > 1.0:
+        spaces["circulation"] = rest
+    barriers = [g for g in (walls, windows) if g is not None and not g.is_empty]
+    barrier = unary_union(barriers) if barriers else None
+    tol = 0.6 * wd
+    parts = [doors.buffer(tol)] if doors is not None and not doors.is_empty else []
+    names = list(spaces)
+    grown = {k: spaces[k].buffer(0.55 * wd) for k in names}
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            if not grown[a].intersects(grown[b]):
+                continue
+            gap = grown[a].intersection(grown[b])
+            if barrier is not None:
+                gap = gap.difference(barrier)
+            for piece in _flat(gap):
+                x0, y0, x1, y1 = piece.bounds
+                if max(x1 - x0, y1 - y0) >= 2 * wd:
+                    parts.append(piece.buffer(tol))
+    portal = unary_union(parts) if parts else None
+    items = list(spaces.items())
+    tree = shapely.STRtree([g for _, g in items])
+
+    def label(pt):
+        hits = tree.query(pt, predicate="intersects")
+        return items[int(hits[0])][0] if len(hits) else None
+
+    return portal, label
+
+
+def _space_changes_off_portal(line, label, portal, s, step_m=0.05):
+    """Points where the line moves from one space into another outside every portal."""
+    n = max(2, int(line.length * s / step_m) + 1)
+    prev_label, prev_pt, bad = None, None, []
+    for k in range(n + 1):
+        pt = line.interpolate(k / n, normalized=True)
+        lab = label(pt)
+        if lab is None:
+            continue  # inside a wall band or doorway; judged where the next space starts
+        if prev_label is not None and lab != prev_label:
+            mid = Point((pt.x + prev_pt.x) / 2, (pt.y + prev_pt.y) / 2)
+            if portal is None or not portal.covers(mid):
+                bad.append([round(mid.x, 2), round(mid.y, 2)])
+        prev_label, prev_pt = lab, pt
+    return bad
+
+
+def _building(plan, rooms, s):
+    """The building outline: `inner`, widened to cover every room and door when the
+    data's outline leaves parts of rooms out (assumptions Q16)."""
+    inner = _valid(plan.get("inner"))
+    if not rooms:
+        return inner
+    room_union = unary_union(list(rooms.values()))
+    if room_union.difference(inner).area * s * s <= 0.5:
+        return inner
+    wd = float(plan.get("wall_depth") or 0) or 0.2 / s
+    doors = _valid(plan.get("door"))
+    cover = [room_union] + ([doors] if doors is not None and not doors.is_empty else [])
+    return unary_union([inner, unary_union(cover).buffer(0.5 * wd)])
+
+
+def _linked(a, b, barrier, wd, doors=()):
+    """Rooms a and b share a passage: a door polygon reaches both, or their grown
+    outlines overlap somewhere no wall or window covers (an open passage)."""
+    ga, gb = a.buffer(wd * 0.6), b.buffer(wd * 0.6)
+    for d in doors:
+        if d.intersects(ga) and d.intersects(gb):
+            return True
+    gap = ga.intersection(gb)
     if gap.is_empty:
         return False
     if barrier is not None and not barrier.is_empty:
@@ -209,13 +292,13 @@ def _linked(a, b, barrier, wd):
     return gap.area > 0.2 * wd * wd
 
 
-def _zone_connected(zone, connectors, rooms, barrier, wd):
+def _zone_connected(zone, connectors, rooms, barrier, wd, doors=()):
     allowed = set(zone) | set(connectors)
     seen, stack = {zone[0]}, [zone[0]]
     while stack:
         u = stack.pop()
         for v in allowed - seen:
-            if _linked(rooms[u], rooms[v], barrier, wd):
+            if _linked(rooms[u], rooms[v], barrier, wd, doors):
                 seen.add(v)
                 stack.append(v)
     return all(r in seen for r in zone)
