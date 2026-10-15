@@ -1,4 +1,3 @@
-"""One node per eligible room (assumptions Q6: pole of inaccessibility)."""
 from shapely.geometry import Point
 from shapely.ops import polylabel
 
@@ -7,7 +6,6 @@ from loopwright.geometry.heal import largest
 
 
 def place_nodes(model, settings=DEFAULT):
-    """Map room id to an (x, y) node position inside that room, in plan units."""
     tolerance = 0.05 / model.m_per_unit
     nodes = {}
     for sp in model.eligible:
@@ -20,7 +18,6 @@ def place_nodes(model, settings=DEFAULT):
 
 
 def hub_point(room_geom, node, m_per_unit, offset_m=0.6):
-    """A hub position inside the room, offset from its node so legs have length."""
     piece = largest(room_geom)
     d = offset_m / m_per_unit
     x, y = node

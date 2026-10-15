@@ -1,14 +1,6 @@
-"""Every rule reading as a setting. Defaults mirror docs/assumptions.md (Q1-Q14).
-
-Solver code reads these settings; it never hard-codes a rule reading. When an
-answer arrives from the organisers, change the default here in its own commit
-and record the answer in docs/assumptions.md.
-"""
 from dataclasses import dataclass, fields, replace
 import math
 
-# Values each setting accepts. A tuple lists only the readings the solver
-# implements; add a value together with the code that handles it.
 ZONE_LINKS = ("strict", "circulation", "through_rooms")
 PASS_THROUGH = ("circulation", "bathroom", "stair", "other_zones")
 INPUT_FORMATS = ("auto", "json", "resplan")
@@ -41,17 +33,17 @@ def _boolean(name, value):
 
 @dataclass(frozen=True)
 class Settings:
-    # Q1: how a zone's rooms must be joined
+    # Q1
     zone_link: str = "strict"
-    # Q2: weights in J = L + bend_m*B + crossing_m*X + overlap_factor*O
+    # Q2
     bend_m: float = 0.3
     crossing_m: float = 3.0
     overlap_factor: float = 2.0
-    # Q3: what counts as a bend, an overlap, a crossing
+    # Q3
     bend_at_node: bool = True
     lane_gap_m: float = 0.4
     count_self_crossings: bool = True
-    # Q4 and the area cap
+    # Q4
     max_nodes: int = 5
     max_area_m2: float = 100.0
     # Q5-Q14
@@ -65,7 +57,7 @@ class Settings:
     infeasible_output: str = "flag_and_relaxed"
     time_limit_s: float = 10.0
     area_source: str = "polygon"
-    # Geometry constants (not rule readings)
+    # Geometry constants
     clearance_m: float = 0.10
     sliver_m2: float = 0.5
 

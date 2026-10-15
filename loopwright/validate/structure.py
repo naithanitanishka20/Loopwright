@@ -1,9 +1,4 @@
-"""Structural checks on a loopwright/2 document, before any rule is checked.
-
-Types, required keys from docs/schema-v2.json, finite numbers, no booleans used
-as numbers, and no NaN or Infinity in the JSON. Needs no plan, so it runs on any
-output file; rules.py then checks V00-V14 against the plan.
-"""
+"""Structural checks for loopwright/2 documents."""
 from __future__ import annotations
 
 import json
@@ -139,8 +134,10 @@ def validate_design(document):
         for field in ("hubs", "hub_lower_bound", "bends"):
             _integer(metrics.get(field), f"metrics.{field}", issues, minimum=0)
 
-    if _array(document.get("ranking_key"), "ranking_key", issues) and len(document["ranking_key"]) < 2:
-        issues.append("ranking_key must contain at least two values")
+    if _array(document.get("ranking_key"), "ranking_key", issues):
+        ranking_key = document["ranking_key"]
+        if len(ranking_key) != 2 or not all(_number(value) for value in ranking_key):
+            issues.append("ranking_key must contain exactly two finite numbers")
     validation = document.get("validation")
     if _required_object_fields(validation, "validation", ("valid", "checks"), issues):
         if type(validation.get("valid")) is not bool:

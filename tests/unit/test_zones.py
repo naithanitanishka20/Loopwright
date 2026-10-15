@@ -38,7 +38,6 @@ def test_over_cap_room_gets_its_own_relaxed_zone():
 
 
 def test_connectivity_callback_forces_more_hubs():
-    # Rooms 1 and 2 may only share a zone with room 0 (a star around the living room).
     star = lambda mask: mask & 1 == 1 or bin(mask).count("1") == 1
     feasible = feasible_zones([40.0, 30.0, 30.0], DEFAULT, connected=star, relax_singletons=False)
     assert min_hubs(3, feasible)[0] == 1        # all three fit around room 0

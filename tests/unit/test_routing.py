@@ -7,5 +7,4 @@ def test_l_leg_uses_one_corner():
 
 
 def test_l_leg_keeps_two_points_for_a_zero_length_leg():
-    # Schema loopwright/2 needs at least two points per leg path.
     assert l_leg((1, 2), (1, 2)) == [(1, 2), (1, 2)]

@@ -64,7 +64,6 @@ def test_ring_ending_at_another_hub_fails_v07(solved):
 def test_run_through_a_wall_fails_v10(solved):
     plan, out = solved
     bad = copy.deepcopy(out)
-    # Push the leg that crosses the middle wall up to y = 3.0, above the door (1.5 to 2.4).
     for leg in bad["rings"][0]["legs"]:
         xs = [p[0] for p in leg["path"]]
         if min(xs) < 4.95 < max(xs):

@@ -1,9 +1,3 @@
-"""Turn a raw plan dict into spaces with metre areas.
-
-Room ids are <type>_<k>, where k counts that type's polygon parts (at least the
-sliver size) in input order. All living pieces merge into living_0 unless
-settings.living_pieces == "split" (assumptions Q9).
-"""
 import math
 from dataclasses import dataclass, field
 
@@ -43,11 +37,16 @@ class PlanModel:
 
 
 def scale(plan, inner):
-    if plan.get("m_per_unit"):
-        return float(plan["m_per_unit"])
-    area = float(plan.get("area") or 0)
-    if area <= 0 or inner.area <= 0:
-        raise ValueError("plan needs a positive 'area' (m²) to compute the scale")
+    explicit = plan.get("m_per_unit")
+    if explicit is not None:
+        if isinstance(explicit, bool) or not isinstance(explicit, (int, float)) or not math.isfinite(explicit) or explicit <= 0:
+            raise ValueError("plan 'm_per_unit' must be a finite number greater than zero")
+        return float(explicit)
+    area = plan.get("area")
+    if isinstance(area, bool) or not isinstance(area, (int, float)) or not math.isfinite(area) or area <= 0:
+        raise ValueError("plan 'area' must be a finite number greater than zero")
+    if not math.isfinite(inner.area) or inner.area <= 0:
+        raise ValueError("plan 'inner' must have positive finite area")
     return math.sqrt(area / inner.area)
 
 

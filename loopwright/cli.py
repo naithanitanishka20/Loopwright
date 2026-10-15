@@ -1,4 +1,3 @@
-"""Command line: loopwright solve | validate | config."""
 import argparse
 import json
 import os
@@ -57,7 +56,6 @@ def _print_checks(checks):
 
 
 def cmd_validate(args):
-    """Structure first (types, finite numbers, schema keys), then rules V00-V14 against the plan."""
     from loopwright.validate.structure import DesignValidationError, load_design
 
     try:

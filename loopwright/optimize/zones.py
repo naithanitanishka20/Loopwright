@@ -1,8 +1,4 @@
-"""Lower bound, feasible zones and the exact minimum hub count.
-
-Rooms are indexed 0..n-1 and zones are bitmasks over them (n <= 9 on ResPlan,
-so at most 511 zones).
-"""
+"""Zone feasibility and exact hub-count search."""
 import math
 
 from loopwright.config import DEFAULT
@@ -15,7 +11,6 @@ def ceil_div(x, d):
 
 
 def lower_bound(total_area_m2, n, settings=DEFAULT):
-    """max(ceil(area / cap), ceil(n / node cap)); 0 when there are no rooms."""
     if isinstance(total_area_m2, bool) or not isinstance(total_area_m2, (int, float)) \
             or not math.isfinite(total_area_m2) or total_area_m2 < 0:
         raise ValueError("total_area_m2 must be a finite non-negative number")
@@ -27,12 +22,12 @@ def lower_bound(total_area_m2, n, settings=DEFAULT):
 
 
 def feasible_zones(areas, settings=DEFAULT, connected=None, relax_singletons=True):
-    """feasible[mask] for every subset of rooms.
-
-    connected(mask) -> bool checks the zone rule; None means not checked yet.
-    relax_singletons keeps a single over-cap room as its own zone, so the plan
-    still gets a (flagged) design instead of no answer (assumptions Q11).
-    """
+    try:
+        areas = list(areas)
+    except TypeError as exc:
+        raise ValueError("areas must be a sequence of finite non-negative numbers") from exc
+    if any(isinstance(area, bool) or not isinstance(area, (int, float)) or not math.isfinite(area) or area < 0 for area in areas):
+        raise ValueError("areas must be a sequence of finite non-negative numbers")
     n = len(areas)
     size = 1 << n
     area = [0.0] * size
@@ -53,7 +48,6 @@ def feasible_zones(areas, settings=DEFAULT, connected=None, relax_singletons=Tru
 
 
 def min_hubs(n, feasible):
-    """Exact minimum number of zones covering all rooms, and one optimal partition."""
     if n == 0:
         return 0, []
     size = 1 << n

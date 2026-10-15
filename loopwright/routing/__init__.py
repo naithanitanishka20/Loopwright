@@ -1,1 +1,0 @@
-"""Leg routing (lane B)."""

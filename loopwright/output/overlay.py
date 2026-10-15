@@ -1,4 +1,3 @@
-"""SVG overlay in the organisers' slide 5 style."""
 from html import escape
 
 from loopwright.geometry.heal import flat

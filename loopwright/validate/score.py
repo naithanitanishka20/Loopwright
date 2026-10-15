@@ -1,4 +1,4 @@
-"""Metrics, J and the organisers' slide 5 reviewer checklist."""
+"""Cable metrics and reviewer lines."""
 from shapely.geometry import LineString
 from shapely.ops import unary_union
 
@@ -20,7 +20,6 @@ def leg_length_and_bends(path):
 
 
 def ring_metrics(ring, m_per_unit, bend_at_node=True):
-    """Length in metres and bends, counting turns at nodes but not at the hub."""
     total, bends, prev_out = 0.0, 0, None
     for i, leg in enumerate(ring["legs"]):
         length, b, first, last = leg_length_and_bends([tuple(p) for p in leg["path"]])
@@ -33,7 +32,6 @@ def ring_metrics(ring, m_per_unit, bend_at_node=True):
 
 
 def interactions(rings, m_per_unit):
-    """Crossings (points) and overlap (metres) between different rings."""
     lines = [unary_union([LineString(l["path"]) for l in r["legs"] if len(l["path"]) > 1]) for r in rings]
     crossings, overlap = 0, 0.0
     for i in range(len(lines)):

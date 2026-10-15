@@ -1,4 +1,3 @@
-"""Canonical JSON and its hash. Same plan + same settings -> same bytes."""
 import hashlib
 import json
 
@@ -14,14 +13,13 @@ def _round(obj, ndigits=3):
 
 
 def canonical_json(obj, exclude=("runtime_s",)):
-    """Deterministic JSON text: rounded floats, no timing fields."""
     def strip(o):
         if isinstance(o, dict):
             return {k: strip(v) for k, v in o.items() if k not in exclude}
         if isinstance(o, list):
             return [strip(v) for v in o]
         return o
-    return json.dumps(_round(strip(obj)), ensure_ascii=False, separators=(",", ":"), sort_keys=False)
+    return json.dumps(_round(strip(obj)), ensure_ascii=False, separators=(",", ":"), sort_keys=False, allow_nan=False)
 
 
 def digest(obj):
@@ -29,5 +27,6 @@ def digest(obj):
 
 
 def write_json(obj, path):
+    text = json.dumps(_round(obj), ensure_ascii=False, indent=1, allow_nan=False)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(_round(obj), f, ensure_ascii=False, indent=1)
+        f.write(text)

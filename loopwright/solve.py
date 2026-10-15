@@ -1,4 +1,3 @@
-"""The pipeline: plan dict in, schema loopwright/2 dict out."""
 import time
 
 from loopwright import SCHEMA
@@ -23,7 +22,7 @@ def solve(plan, settings=DEFAULT):
     total_area = sum(areas)
     lb = lower_bound(total_area, n, settings)
 
-    # Phase 2: zones from areas and node counts only; door-link contiguity arrives in Phase 3.
+    # Phase 2 does not have a door graph.
     feasible = feasible_zones(areas, settings, connected=None)
     _, masks = min_hubs(n, feasible)
     zones = [[ids[k] for k in members(m, n)] for m in masks]

@@ -1,6 +1,4 @@
-"""Rules V00-V14 checked against the raw plan. V05 and V13 need the door graph
-and are reported as not checked until Phase 3.
-"""
+"""Independent V00-V14 checks; V05 and V13 need the Phase 3 door graph."""
 import math
 
 import shapely
@@ -34,7 +32,6 @@ def _polys(g, min_area=0.0):
 
 
 def rebuild_rooms(plan, m_per_unit, living_pieces="merge", sliver_m2=0.5):
-    """Room id -> polygon, using the documented id convention."""
     sliver = sliver_m2 / (m_per_unit * m_per_unit)
     rooms = {}
     living = _polys(plan.get("living"), sliver)
@@ -60,7 +57,6 @@ def _check(results, rule, ok, detail="", where=None):
 
 
 def validate(plan, out, settings):
-    """Return {"valid": bool, "checks": [...]} for output `out` on raw `plan`."""
     checks = []
     missing = [k for k in REQUIRED_TOP if k not in out]
     _check(checks, "V00", not missing, f"missing keys: {missing}" if missing else "")
