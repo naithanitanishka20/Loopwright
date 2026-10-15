@@ -21,7 +21,7 @@ MAX_GRID_VERTICES = 1_000_000
 
 
 class GridRouter:
-    def __init__(self, model, stops, settings, spacing_m=0.2):
+    def __init__(self, model, stops, settings, spacing_m=0.2, avoid=None):
         self.s = model.m_per_unit
         layers = model.layers
         blocked = []
@@ -32,6 +32,8 @@ class GridRouter:
             g = layers.get(k)
             if g is not None and not g.is_empty:
                 blocked.append(g)
+        if avoid is not None and not avoid.is_empty:
+            blocked.append(avoid)  # places the validator rejected in an earlier attempt
         region = layers["inner"]
         if blocked:
             region = region.difference(unary_union(blocked))

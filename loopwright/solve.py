@@ -2,6 +2,7 @@
 import time
 
 from shapely.geometry import Point
+from shapely.ops import unary_union
 
 from loopwright import SCHEMA
 from loopwright.config import DEFAULT
@@ -17,7 +18,11 @@ from loopwright.validate.rules import validate
 from loopwright.validate.score import leg_length_and_bends, reviewer_lines, ring_metrics, score
 
 
-def _zones(model, settings, diagnostics, piece_of):
+MAX_REPAIRS = 3
+AVOID_M = 0.3
+
+
+def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset()):
     elig = model.eligible
     ids = [sp.id for sp in elig]
     areas = [sp.area_m2 for sp in elig]
@@ -33,6 +38,9 @@ def _zones(model, settings, diagnostics, piece_of):
         # One ring needs one walkable area: rooms the door graph links but a wall
         # or external area separates can't share a hub.
         if len({piece_of.get(r) for r in rooms}) != 1 or piece_of.get(rooms[0]) is None:
+            return False
+        # Nor can rooms the router failed to join in an earlier attempt.
+        if any(frozenset((a, b)) in unroutable for i, a in enumerate(rooms) for b in rooms[i + 1:]):
             return False
         return is_connected(rooms, adj, connectors)
 
@@ -104,7 +112,7 @@ def solve(plan, settings=DEFAULT):
     t0 = time.perf_counter()
     model = build_model(plan, settings)
     s = model.m_per_unit
-    diagnostics = list(model.diagnostics)
+    base = list(model.diagnostics)
     nodes_at = place_nodes(model, settings)
     region = walkable_region(model)
     parts = pieces(region)
@@ -113,15 +121,50 @@ def solve(plan, settings=DEFAULT):
             moved = walkable_node(sp.geom, region, s)
             if moved is not None:
                 nodes_at[sp.id] = moved
-                diagnostics.append({"code": "NODE_MOVED", "room": sp.id, "reason": "pole of inaccessibility is not walkable"})
+                base.append({"code": "NODE_MOVED", "room": sp.id, "reason": "pole of inaccessibility is not walkable"})
             else:
-                diagnostics.append({"code": "ROOM_NOT_WALKABLE", "room": sp.id})
+                base.append({"code": "ROOM_NOT_WALKABLE", "room": sp.id})
     piece_of = {rid: piece_index(pos, parts) for rid, pos in nodes_at.items()}
+
+    # Repair pass, only when something fails: rooms the router can't join stop sharing
+    # a hub, and places where the validator sees no passage are avoided on the next try.
+    unroutable, avoid_at = frozenset(), []
+    for attempt in range(MAX_REPAIRS + 1):
+        avoid = unary_union([Point(p).buffer(AVOID_M / s) for p in avoid_at]) if avoid_at else None
+        out, unreachable = _design(plan, model, settings, nodes_at, region, piece_of, list(base), unroutable, avoid)
+        if attempt == MAX_REPAIRS:
+            break
+        if unreachable:
+            unroutable = unroutable | unreachable
+            continue
+        crossings = _illegal_crossings(out)
+        if not crossings:
+            break
+        avoid_at += crossings
+    out["diagnostics"] += [{"code": "UNROUTABLE_LINK", "rooms": sorted(pair)} for pair in sorted(unroutable, key=sorted)]
+    if avoid_at:
+        out["diagnostics"].append({"code": "REROUTED", "avoided": [[round(x, 3), round(y, 3)] for x, y in avoid_at]})
+    out["metrics"]["runtime_s"] = round(time.perf_counter() - t0, 3)
+    return out, model
+
+
+def _illegal_crossings(out):
+    """Points where the validator saw a leg change space away from any door or passage (V13)."""
+    return [tuple(pt) for c in out["validation"]["checks"] if c["id"] == "V13" and c["pass"] is False
+            for w in c.get("where") or [] for pt in w.get("at") or []]
+
+
+def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unroutable, avoid):
+    """One full design for fixed nodes: zones, hubs, rings, metrics and validation.
+
+    Returns the design and the pairs of zone rooms the router couldn't join.
+    """
+    s = model.m_per_unit
     elig = model.eligible
     total_area = sum(sp.area_m2 for sp in elig)
     n = len(elig)
     lb = lower_bound(total_area, n, settings)
-    zones, hub_minimum, adj = _zones(model, settings, diagnostics, piece_of)
+    zones, hub_minimum, adj = _zones(model, settings, diagnostics, piece_of, unroutable)
     _explain_extra_hubs(model, zones, adj, lb, diagnostics)
 
     hub_pos = {}
@@ -129,11 +172,12 @@ def solve(plan, settings=DEFAULT):
         main_room = max(zone, key=lambda r: model.space(r).area_m2)
         hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s))
     stops = {**{rid: pos for rid, pos in nodes_at.items()}, **{h: pos for h, (_, pos) in hub_pos.items()}}
-    router = GridRouter(model, stops, settings)
+    router = GridRouter(model, stops, settings, avoid=avoid)
 
     counter = 1
     hubs, nodes, rings = [], [], []
     fallback = None
+    unreachable = set()
     for zi, zone in enumerate(zones, start=1):
         hub_id = f"H{zi}"
         main_room, hpos = hub_pos[hub_id]
@@ -142,9 +186,10 @@ def solve(plan, settings=DEFAULT):
         if any(router.cost(a, b) == INF for a in stops_here for b in stops_here if a != b):
             # Narrow doors can close under the clearance; retry this zone on a finer grid without it.
             if fallback is None:
-                fallback = GridRouter(model, stops, settings.with_overrides(clearance_m=0.0), spacing_m=0.1)
+                fallback = GridRouter(model, stops, settings.with_overrides(clearance_m=0.0), spacing_m=0.1, avoid=avoid)
             zrouter = fallback
             diagnostics.append({"code": "ROUTER_FALLBACK", "ring": hub_id})
+        unreachable |= {frozenset((a, b)) for i, a in enumerate(zone) for b in zone[i + 1:] if zrouter.cost(a, b) == INF}
         on_ring = _hub_on_ring(zrouter, zone, model) if len(zone) >= 2 else None
         if on_ring is not None:
             order, hpos, main_room, leg_paths = on_ring
@@ -199,5 +244,4 @@ def solve(plan, settings=DEFAULT):
     out["validation"] = validate(plan, out, settings)
     out["reviewer"] = reviewer_lines(out, out["validation"], lb, total_area, n)
     out["diagnostics"] = diagnostics
-    out["metrics"]["runtime_s"] = round(time.perf_counter() - t0, 3)
-    return out, model
+    return out, unreachable
