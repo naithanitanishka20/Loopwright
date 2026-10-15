@@ -1,6 +1,8 @@
 """The pipeline: plan dict in, schema loopwright/2 dict out."""
 import time
 
+from shapely.geometry import Point
+
 from loopwright import SCHEMA
 from loopwright.config import DEFAULT
 from loopwright.geometry.nodes import place_nodes
@@ -9,7 +11,7 @@ from loopwright.geometry.portals import connector_ids, door_graph, is_connected
 from loopwright.geometry.spaces import build_model
 from loopwright.optimize.baseline import greedy_zones
 from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs
-from loopwright.routing.grid import INF, GridRouter, best_ring_order
+from loopwright.routing.grid import INF, GridRouter, best_cycle, best_ring_order
 from loopwright.routing.straight import l_leg
 from loopwright.validate.rules import validate
 from loopwright.validate.score import leg_length_and_bends, reviewer_lines, ring_metrics, score
@@ -59,6 +61,45 @@ def _explain_extra_hubs(model, zones, adj, lb, diagnostics):
         diagnostics.append({"code": "EXTRA_HUB", "room": room, "reason": reason})
 
 
+def _hub_on_ring(router, zone, model):
+    """Put the hub on the cheapest tour through the zone's nodes, inside one of the zone's rooms.
+
+    A hub on the path between two consecutive nodes adds no cable; on a corner of
+    that path it also removes the bend there, since turns at the hub don't count.
+    Returns (rooms in ring order, hub position, hub room, leg paths), or None when
+    no point of the tour lies inside the zone's rooms.
+    """
+    order, cost = best_cycle(router, zone)
+    if cost == INF:
+        return None
+    m = len(order)
+    paths = [router.path(order[j], order[(j + 1) % m]) for j in range(m)]
+    rooms = [(r, model.space(r).geom) for r in zone]
+    best = None
+    for k, path in enumerate(paths):
+        ends = (Point(path[0]), Point(path[-1]))
+        for x, y, seg, corner in router.vertices_on(path):
+            pt = Point(x, y)
+            room = next((r for r, g in rooms if g.covers(pt)), None)
+            if room is None:
+                continue
+            key = (corner, round(min(pt.distance(e) for e in ends), 6))
+            if best is None or key > best[0]:
+                best = (key, k, seg, (x, y), corner, room)
+    if best is None:
+        return None
+    _, k, seg, at, corner, room = best
+    pts = [tuple(p) for p in paths[k]]
+    if corner:
+        first, second = pts[:seg + 2], pts[seg + 1:]
+    else:
+        first, second = pts[:seg + 1] + [at], [at] + pts[seg + 1:]
+    start = (k + 1) % m
+    ring_rooms = [order[(start + t) % m] for t in range(m)]
+    legs = [second] + [paths[(start + t) % m] for t in range(m - 1)] + [first]
+    return ring_rooms, at, room, [[list(p) for p in leg] for leg in legs]
+
+
 def solve(plan, settings=DEFAULT):
     t0 = time.perf_counter()
     model = build_model(plan, settings)
@@ -96,8 +137,6 @@ def solve(plan, settings=DEFAULT):
     for zi, zone in enumerate(zones, start=1):
         hub_id = f"H{zi}"
         main_room, hpos = hub_pos[hub_id]
-        hubs.append({"id": hub_id, "pos": list(hpos), "room": main_room, "zone": zone,
-                     "area_m2": round(sum(model.space(r).area_m2 for r in zone), 1), "nodes": len(zone)})
         zrouter = router
         stops_here = [hub_id] + zone
         if any(router.cost(a, b) == INF for a in stops_here for b in stops_here if a != b):
@@ -106,8 +145,14 @@ def solve(plan, settings=DEFAULT):
                 fallback = GridRouter(model, stops, settings.with_overrides(clearance_m=0.0), spacing_m=0.1)
             zrouter = fallback
             diagnostics.append({"code": "ROUTER_FALLBACK", "ring": hub_id})
-        router_for_legs = zrouter
-        order, cost = best_ring_order(zrouter, hub_id, zone)
+        on_ring = _hub_on_ring(zrouter, zone, model) if len(zone) >= 2 else None
+        if on_ring is not None:
+            order, hpos, main_room, leg_paths = on_ring
+        else:
+            order, _ = best_ring_order(zrouter, hub_id, zone)
+            leg_paths = None
+        hubs.append({"id": hub_id, "pos": list(hpos), "room": main_room, "zone": zone,
+                     "area_m2": round(sum(model.space(r).area_m2 for r in zone), 1), "nodes": len(zone)})
         sequence, names = [hub_id], [hub_id]
         for pos_in_ring, room in enumerate(order, start=1):
             nid = f"N{counter}"
@@ -119,7 +164,10 @@ def solve(plan, settings=DEFAULT):
         names.append(hub_id)
         legs = []
         for i, (a, b) in enumerate(zip(names, names[1:]), start=1):
-            path = router_for_legs.path(a, b) if router_for_legs.cost(a, b) < INF else None
+            if leg_paths is not None:
+                path = leg_paths[i - 1]
+            else:
+                path = zrouter.path(a, b) if zrouter.cost(a, b) < INF else None
             if path is None:
                 path = [list(p) for p in l_leg(stops[a], stops[b])]
                 diagnostics.append({"code": "ROUTE_UNREACHABLE", "ring": hub_id, "leg": i, "from": a, "to": b})

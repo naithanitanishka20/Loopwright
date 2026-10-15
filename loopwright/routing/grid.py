@@ -128,6 +128,24 @@ class GridRouter:
         pts.reverse()
         return _merge_collinear(pts)
 
+    def vertices_on(self, path):
+        """Grid vertices along a path, in order, without its two ends: (x, y, segment, is_corner)."""
+        pts = [tuple(p) for p in path]
+        out = []
+        for seg, (a, b) in enumerate(zip(pts, pts[1:])):
+            if a[1] == b[1]:
+                lo, hi = sorted((a[0], b[0]))
+                inner = [(x, a[1]) for x in self.xs if lo < x < hi]
+                reverse = b[0] < a[0]
+            else:
+                lo, hi = sorted((a[1], b[1]))
+                inner = [(a[0], y) for y in self.ys if lo < y < hi]
+                reverse = b[1] < a[1]
+            out += [(x, y, seg, False) for x, y in (reversed(inner) if reverse else inner)]
+            if seg + 1 < len(pts) - 1:
+                out.append((b[0], b[1], seg, True))
+        return out
+
 
 def _merge_collinear(pts):
     out = [pts[0]]
@@ -143,6 +161,22 @@ def _merge_collinear(pts):
     if len(out) == 1:
         out.append(out[0])
     return [list(p) for p in out]
+
+
+def best_cycle(router, nodes):
+    """Cheapest closed tour through the nodes alone: fix the first, try every order of the rest."""
+    first, *rest = sorted(nodes)
+    best, best_order = INF, [first, *rest]
+    for perm in itertools.permutations(rest):
+        seq = (first,) + perm + (first,)
+        total = 0.0
+        for a, b in zip(seq, seq[1:]):
+            total += router.cost(a, b)
+            if total >= best:
+                break
+        if total < best:
+            best, best_order = total, [first, *perm]
+    return best_order, best
 
 
 def best_ring_order(router, hub, nodes):
