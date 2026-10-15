@@ -31,6 +31,7 @@ def run_one(job):
     m = out["metrics"]
     return {"id": out["plan_id"], "status": status, "cause": cause, "failed_rules": failed, "diagnostics": codes,
             "hubs": m["hubs"], "hub_lower_bound": m["hub_lower_bound"], "hub_minimum": m["hub_minimum"],
+            "hubs_greedy": m.get("hubs_greedy"),
             "length_m": m["length_m"], "bends": m["bends"], "crossings": m["crossings"], "overlap_m": m["overlap_m"],
             "J": m["J"], "runtime_s": m["runtime_s"]}
 
@@ -65,7 +66,9 @@ def report(rows, settings=DEFAULT):
     if feasible:
         lines += ["", f"Valid on feasible plans: {status['valid']} of {len(feasible)} ({100 * status['valid'] / len(feasible):.1f}%)"]
     if solved:
-        lines += [f"Hubs: {sum(r['hubs'] for r in solved)} against a lower bound of {sum(r['hub_lower_bound'] for r in solved)}",
+        greedy = [r for r in solved if r.get("hubs_greedy") is not None]
+        lines += [f"Hubs: {sum(r['hubs'] for r in solved)} against a lower bound of {sum(r['hub_lower_bound'] for r in solved)}"
+                  + (f" and greedy's {sum(r['hubs_greedy'] for r in greedy)}" if greedy else ""),
                   f"Runtime per plan: p50 {times[len(times) // 2]:.2f} s, p95 {times[int(len(times) * 0.95) - 1]:.2f} s"]
     if causes:
         lines += ["", "| Cause | Plans | Examples |", "|---|---|---|"]

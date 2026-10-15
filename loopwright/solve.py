@@ -6,6 +6,7 @@ from loopwright.config import DEFAULT
 from loopwright.geometry.nodes import hub_point, place_nodes
 from loopwright.geometry.portals import connector_ids, door_graph, is_connected
 from loopwright.geometry.spaces import build_model
+from loopwright.optimize.baseline import greedy_zones
 from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs
 from loopwright.routing.grid import INF, GridRouter, best_ring_order
 from loopwright.routing.straight import l_leg
@@ -74,12 +75,22 @@ def solve(plan, settings=DEFAULT):
 
     counter = 1
     hubs, nodes, rings = [], [], []
+    fallback = None
     for zi, zone in enumerate(zones, start=1):
         hub_id = f"H{zi}"
         main_room, hpos = hub_pos[hub_id]
         hubs.append({"id": hub_id, "pos": list(hpos), "room": main_room, "zone": zone,
                      "area_m2": round(sum(model.space(r).area_m2 for r in zone), 1), "nodes": len(zone)})
-        order, cost = best_ring_order(router, hub_id, zone)
+        zrouter = router
+        stops_here = [hub_id] + zone
+        if any(router.cost(a, b) == INF for a in stops_here for b in stops_here if a != b):
+            # Narrow doors can close under the clearance; retry this zone on a finer grid without it.
+            if fallback is None:
+                fallback = GridRouter(model, stops, settings.with_overrides(clearance_m=0.0), spacing_m=0.1)
+            zrouter = fallback
+            diagnostics.append({"code": "ROUTER_FALLBACK", "ring": hub_id})
+        router_for_legs = zrouter
+        order, cost = best_ring_order(zrouter, hub_id, zone)
         sequence, names = [hub_id], [hub_id]
         for pos_in_ring, room in enumerate(order, start=1):
             nid = f"N{counter}"
@@ -91,7 +102,7 @@ def solve(plan, settings=DEFAULT):
         names.append(hub_id)
         legs = []
         for i, (a, b) in enumerate(zip(names, names[1:]), start=1):
-            path = router.path(a, b) if router.cost(a, b) < INF else None
+            path = router_for_legs.path(a, b) if router_for_legs.cost(a, b) < INF else None
             if path is None:
                 path = [list(p) for p in l_leg(stops[a], stops[b])]
                 diagnostics.append({"code": "ROUTE_UNREACHABLE", "ring": hub_id, "leg": i, "from": a, "to": b})
@@ -116,8 +127,9 @@ def solve(plan, settings=DEFAULT):
         "rings": rings,
     }
     metrics = score(out, settings)
+    greedy = greedy_zones([sp.id for sp in elig], [sp.area_m2 for sp in elig], adj, settings)
     out["metrics"] = {"hubs": len(hubs), "hub_lower_bound": lb, "hub_minimum": hub_minimum if hub_minimum < 10 ** 9 else None,
-                      **metrics, "runtime_s": None}
+                      "hubs_greedy": len(greedy), **metrics, "runtime_s": None}
     out["ranking_key"] = [len(hubs), metrics["J"]]
     out["validation"] = validate(plan, out, settings)
     out["reviewer"] = reviewer_lines(out, out["validation"], lb, total_area, n)
