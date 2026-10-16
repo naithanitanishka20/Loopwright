@@ -37,6 +37,14 @@ def test_over_cap_room_gets_its_own_relaxed_zone():
     assert min_hubs(2, relaxed)[0] == 2
 
 
+def test_exact_zone_search_rejects_unbounded_room_counts():
+    with pytest.raises(ValueError, match="at most 12 rooms"):
+        feasible_zones([1.0] * 13)
+
+    with pytest.raises(ValueError, match="at most 12 rooms"):
+        min_hubs(13, [False] * (1 << 13))
+
+
 def test_connectivity_callback_forces_more_hubs():
     # Rooms 1 and 2 may only share a zone with room 0 (a star around the living room).
     star = lambda mask: mask & 1 == 1 or bin(mask).count("1") == 1

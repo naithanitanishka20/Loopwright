@@ -1,13 +1,21 @@
 """Lower bound, feasible zones and the exact minimum hub count.
 
-Rooms are indexed 0..n-1 and zones are bitmasks over them (n <= 9 on ResPlan,
-so at most 511 zones).
+Rooms are indexed 0..n-1 and zones are bitmasks over them. Exact search is
+bounded at 12 rooms to keep the exponential state space under control.
 """
 import math
 
 from loopwright.config import DEFAULT
 
 INF = 10 ** 9
+MAX_EXACT_ROOMS = 12
+
+
+def _check_room_count(n):
+    if type(n) is not int or n < 0:
+        raise ValueError("n must be a non-negative integer")
+    if n > MAX_EXACT_ROOMS:
+        raise ValueError(f"exact zone search supports at most {MAX_EXACT_ROOMS} rooms")
 
 
 def ceil_div(x, d):
@@ -40,6 +48,7 @@ def feasible_zones(areas, settings=DEFAULT, connected=None, relax_singletons=Tru
     if any(isinstance(area, bool) or not isinstance(area, (int, float)) or not math.isfinite(area) or area < 0 for area in areas):
         raise ValueError("areas must be a sequence of finite non-negative numbers")
     n = len(areas)
+    _check_room_count(n)
     size = 1 << n
     area = [0.0] * size
     count = [0] * size
@@ -60,6 +69,7 @@ def feasible_zones(areas, settings=DEFAULT, connected=None, relax_singletons=Tru
 
 def min_hubs(n, feasible):
     """Exact minimum number of zones covering all rooms, and one optimal partition."""
+    _check_room_count(n)
     if n == 0:
         return 0, []
     size = 1 << n
