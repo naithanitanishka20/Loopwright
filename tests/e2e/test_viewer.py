@@ -22,13 +22,13 @@ def open_viewer(browser, tmp_path, out, model):
     return page, errors
 
 
-def test_viewer_draws_every_leg_and_lists_all_fifteen_rules(browser, tmp_path):
+def test_viewer_draws_every_leg_and_lists_all_seventeen_rules(browser, tmp_path):
     out, model = solve(two_room_plan())
     page, errors = open_viewer(browser, tmp_path, out, model)
     assert errors == []
     assert page.locator("#title").inner_text() == "Plan 1"
     assert page.locator("polyline.leg").count() == sum(len(r["legs"]) for r in out["rings"])
-    assert page.locator("#rules li").count() == 15
+    assert page.locator("#rules li").count() == 17
     assert page.locator("#rules li.fail").count() == 0
     page.uncheck("#toggle-walls")
     assert page.locator("#layer-walls").is_hidden()

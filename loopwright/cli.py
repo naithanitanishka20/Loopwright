@@ -1,4 +1,4 @@
-"""Command line: loopwright solve | validate | index | batch | config."""
+"""Command line: loopwright solve | validate | index | batch | results | charts | serve | config."""
 import argparse
 import json
 import math
@@ -57,6 +57,8 @@ def cmd_config(args):
 
 
 def cmd_solve(args):
+    from loopwright.io.edits import door_parts
+    from loopwright.output.installer import installer_csv, installer_data, render_installer
     from loopwright.output.overlay import render_svg
     from loopwright.output.schema import digest, write_json
     from loopwright.output.viewer import render_viewer
@@ -67,15 +69,18 @@ def cmd_solve(args):
     out_dir = pathlib.Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = _safe_stem(out["plan_id"])
+    doors = door_parts(plan)
     write_json(out, out_dir / f"{stem}.json")
     (out_dir / f"{stem}.svg").write_text(render_svg(model, out), encoding="utf-8")
     (out_dir / f"{stem}.html").write_text(render_viewer(model, out), encoding="utf-8")
+    (out_dir / f"{stem}.installer.html").write_text(render_installer(model, out, doors), encoding="utf-8")
+    (out_dir / f"{stem}.installer.csv").write_text(installer_csv(installer_data(out, doors)), encoding="utf-8")
     m = out["metrics"]
     failed = [c["id"] for c in out["validation"]["checks"] if c["pass"] is False]
     print(f"plan {stem}: hubs {m['hubs']} (bound {m['hub_lower_bound']}), cable {m['length_m']} m, "
           f"bends {m['bends']}, J {m['J']}, valid {out['validation']['valid']}"
           + (f" (failed: {', '.join(failed)})" if failed else "") + f", hash {digest(out)[:12]}")
-    print(f"wrote {out_dir / (stem + '.json')}, {stem}.svg and {stem}.html (viewer)")
+    print(f"wrote {out_dir / (stem + '.json')}, {stem}.svg, {stem}.html (viewer) and {stem}.installer.html/.csv")
     return 0
 
 
@@ -105,7 +110,7 @@ def _print_checks(checks):
 
 
 def cmd_validate(args):
-    """Structure first (types, finite numbers, schema keys), then rules V00-V14 against the plan."""
+    """Structure first (types, finite numbers, schema keys), then rules V00-V16 against the plan."""
     from loopwright.validate.structure import DesignValidationError, load_design
 
     try:
@@ -120,7 +125,7 @@ def cmd_validate(args):
         return 1
     if not args.json and not args.id:
         _print_checks([{"id": "structure", "pass": True}])
-        print("valid (structure only; give --id or --json to check rules V00-V14)")
+        print("valid (structure only; give --id or --json to check rules V00-V16)")
         return 0
 
     from loopwright.validate.rules import validate
@@ -155,12 +160,64 @@ def cmd_batch(args):
     return 0
 
 
+def cmd_results(args):
+    from loopwright.results import results_file
+
+    text = results_file(args.runs)
+    out = pathlib.Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(text)
+    return 0
+
+
+def cmd_charts(args):
+    from loopwright.charts import extra_hubs_chart, runtime_chart
+    from loopwright.results import load_rows
+
+    rows = [r for path in args.runs for r in load_rows(path)]
+    if args.runtime:
+        times, label = [r["runtime_s"] for r in load_rows(args.runtime)], "single process"
+    else:
+        times, label = [r["runtime_s"] for r in rows], "parallel batch"
+    out = pathlib.Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "extra-hubs.svg").write_text(extra_hubs_chart(rows), encoding="utf-8")
+    (out / "runtime.svg").write_text(runtime_chart(times, label=label), encoding="utf-8")
+    print(f"wrote {out / 'extra-hubs.svg'} and {out / 'runtime.svg'}")
+    return 0
+
+
+def cmd_serve(args):
+    import uvicorn
+
+    from loopwright.api.app import create_app
+
+    data = args.data if pathlib.Path(args.data).exists() else None
+    app = create_app(data_path=data, allowed_hosts=("127.0.0.1", "localhost", args.host))
+    print(f"Loopwright on http://{args.host}:{args.port}/  (ResPlan: {data or 'not found; sketch, import and edit only'})")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="loopwright", description="Hub placement and closed-ring cable routing")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("config", help="print the default settings as JSON")
     ix = sub.add_parser("index", help="write index.html listing every solved plan in a folder")
     ix.add_argument("folder", nargs="?", default="out")
+    rs = sub.add_parser("results", help="write the results table from batch records (.jsonl)")
+    rs.add_argument("runs", nargs="+", help="batch .jsonl files; each becomes a row named after the file")
+    rs.add_argument("--out", default="bench/results.md")
+    ch = sub.add_parser("charts", help="write the slide figures (SVG) from batch records (.jsonl)")
+    ch.add_argument("runs", nargs="+", help="batch .jsonl files; their plans are pooled")
+    ch.add_argument("--runtime", help="records of a one-worker batch for the runtime figure "
+                                      "(default: the runs' own times)")
+    ch.add_argument("--out", default="docs/figures")
+    sv = sub.add_parser("serve", help="run the demo app on this machine")
+    sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip for plans by id (default: %(default)s)")
     b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
@@ -191,6 +248,12 @@ def main(argv=None):
         return cmd_batch(args)
     if args.command == "index":
         return cmd_index(args)
+    if args.command == "serve":
+        return cmd_serve(args)
+    if args.command == "results":
+        return cmd_results(args)
+    if args.command == "charts":
+        return cmd_charts(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")

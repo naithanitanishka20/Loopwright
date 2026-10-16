@@ -3,9 +3,11 @@ import json
 import pathlib
 
 import pytest
+from shapely import affinity
 
 from loopwright.config import DEFAULT
-from loopwright.output.schema import digest
+from loopwright.io.sketch import build_plan
+from loopwright.output.schema import digest, write_json
 from loopwright.solve import solve
 from loopwright.validate.rules import validate
 from tests.helpers import two_room_plan
@@ -103,3 +105,22 @@ def test_caps_are_enforced(solved):
     plan, out = solved
     assert "V03" in failed(plan, out, DEFAULT.with_overrides(max_area_m2=20.0))
     assert "V04" in failed(plan, out, DEFAULT.with_overrides(max_nodes=1))
+
+
+def test_a_design_validates_the_same_from_its_json_file(tmp_path):
+    # The validator rebuilds every area and length from frame.m_per_unit, so the file must keep the
+    # scale exact. Rounded, it pushed this 99.9 m² zone over the cap.
+    s = 0.06881688433052152
+    plan = build_plan([{"type": "living", "polygon": [[0, 0], [10.1, 0], [10.1, 6], [0, 6]]},
+                       {"type": "bedroom", "polygon": [[0, 6], [10.1, 6], [10.1, 10.19], [0, 10.19]]}],
+                      doors=[(0, 1)])
+    plan = {k: affinity.scale(v, 1 / s, 1 / s, origin=(0, 0)) if hasattr(v, "geom_type") else v
+            for k, v in plan.items()}
+    plan.update(m_per_unit=s, wall_depth=plan["wall_depth"] / s)
+    out, _ = solve(plan)
+    assert out["metrics"]["hubs"] == 1 and out["validation"]["valid"] is True
+
+    write_json(out, tmp_path / "design.json")
+    back = json.loads((tmp_path / "design.json").read_text(encoding="utf-8"))
+    assert failed(plan, back) == set()
+    assert back["frame"]["m_per_unit"] == s

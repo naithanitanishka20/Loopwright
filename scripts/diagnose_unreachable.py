@@ -15,7 +15,7 @@ from loopwright.geometry.portals import door_graph
 from loopwright.geometry.spaces import build_model
 from loopwright.io.resplan import get_plan, load_plans
 
-plans = load_plans("data/ResPlan.zip")
+plans = load_plans(__import__("os").environ.get("LOOPWRIGHT_DATA", "data/ResPlan.zip"))
 for pid in sys.argv[1:]:
     plan = get_plan(plans, pid)
     model = build_model(plan, DEFAULT)

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" font-family="system-ui, 'Segoe UI', sans-serif" role="img" aria-label="Hubs above the lower bound, per plan">
+<rect width="720" height="420" fill="#FFFFFF"/>
+<text x="24" y="32" font-size="18" font-weight="600" fill="#18202B">Hubs above the lower bound, per plan</text>
+<text x="24" y="54" font-size="13" fill="#4B5664">16,556 feasible plans · exact minimum against the greedy baseline</text>
+<line x1="64" x2="696" y1="364.0" y2="364.0" stroke="#E3E7E5" stroke-width="1"/>
+<text x="56" y="368.0" font-size="12" fill="#6B7480" text-anchor="end">0</text>
+<line x1="64" x2="696" y1="297.0" y2="297.0" stroke="#E3E7E5" stroke-width="1"/>
+<text x="56" y="301.0" font-size="12" fill="#6B7480" text-anchor="end">4K</text>
+<line x1="64" x2="696" y1="230.0" y2="230.0" stroke="#E3E7E5" stroke-width="1"/>
+<text x="56" y="234.0" font-size="12" fill="#6B7480" text-anchor="end">8K</text>
+<line x1="64" x2="696" y1="163.0" y2="163.0" stroke="#E3E7E5" stroke-width="1"/>
+<text x="56" y="167.0" font-size="12" fill="#6B7480" text-anchor="end">12K</text>
+<line x1="64" x2="696" y1="96.0" y2="96.0" stroke="#E3E7E5" stroke-width="1"/>
+<text x="56" y="100.0" font-size="12" fill="#6B7480" text-anchor="end">16K</text>
+<rect x="24" y="68" width="12" height="12" rx="2" fill="#2A78D6"/>
+<text x="42" y="78" font-size="13" fill="#18202B">Exact</text>
+<rect x="134" y="68" width="12" height="12" rx="2" fill="#EB6834"/>
+<text x="152" y="78" font-size="13" fill="#18202B">Greedy</text>
+<path class="bar" d="M98.0,364.0 L98.0,151.8 Q98.0,147.8 102.0,147.8 L138.0,147.8 Q142.0,147.8 142.0,151.8 L142.0,364.0 Z" fill="#2A78D6"><title>Exact: 12,906 plans with 0 hubs above the bound</title></path>
+<text x="120.0" y="141.8" font-size="12" fill="#18202B" text-anchor="middle">12,906</text>
+<path class="bar" d="M144.0,364.0 L144.0,165.5 Q144.0,161.5 148.0,161.5 L184.0,161.5 Q188.0,161.5 188.0,165.5 L188.0,364.0 Z" fill="#EB6834"><title>Greedy: 12,091 plans with 0 hubs above the bound</title></path>
+<text x="166.0" y="155.5" font-size="12" fill="#18202B" text-anchor="middle">12,091</text>
+<text x="143.0" y="384" font-size="13" fill="#4B5664" text-anchor="middle">0</text>
+<path class="bar" d="M256.0,364.0 L256.0,328.8 Q256.0,324.8 260.0,324.8 L296.0,324.8 Q300.0,324.8 300.0,328.8 L300.0,364.0 Z" fill="#2A78D6"><title>Exact: 2,339 plans with 1 hub above the bound</title></path>
+<path class="bar" d="M302.0,364.0 L302.0,324.9 Q302.0,320.9 306.0,320.9 L342.0,320.9 Q346.0,320.9 346.0,324.9 L346.0,364.0 Z" fill="#EB6834"><title>Greedy: 2,574 plans with 1 hub above the bound</title></path>
+<text x="301.0" y="384" font-size="13" fill="#4B5664" text-anchor="middle">1</text>
+<path class="bar" d="M414.0,364.0 L414.0,353.4 Q414.0,349.4 418.0,349.4 L454.0,349.4 Q458.0,349.4 458.0,353.4 L458.0,364.0 Z" fill="#2A78D6"><title>Exact: 869 plans with 2 hubs above the bound</title></path>
+<path class="bar" d="M460.0,364.0 L460.0,347.1 Q460.0,343.1 464.0,343.1 L500.0,343.1 Q504.0,343.1 504.0,347.1 L504.0,364.0 Z" fill="#EB6834"><title>Greedy: 1,247 plans with 2 hubs above the bound</title></path>
+<text x="459.0" y="384" font-size="13" fill="#4B5664" text-anchor="middle">2</text>
+<path class="bar" d="M572.0,364.0 L572.0,360.3 Q572.0,356.6 575.7,356.6 L612.3,356.6 Q616.0,356.6 616.0,360.3 L616.0,364.0 Z" fill="#2A78D6"><title>Exact: 442 plans with 3+ hubs above the bound</title></path>
+<path class="bar" d="M618.0,364.0 L618.0,357.2 Q618.0,353.2 622.0,353.2 L658.0,353.2 Q662.0,353.2 662.0,357.2 L662.0,364.0 Z" fill="#EB6834"><title>Greedy: 644 plans with 3+ hubs above the bound</title></path>
+<text x="617.0" y="384" font-size="13" fill="#4B5664" text-anchor="middle">3+</text>
+<line x1="64" x2="696" y1="364" y2="364" stroke="#6B7480" stroke-width="1"/>
+<text x="380.0" y="406" font-size="12" fill="#6B7480" text-anchor="middle">hubs above the lower bound</text>
+</svg>

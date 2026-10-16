@@ -3,8 +3,10 @@
 Grid lines run every `spacing_m` plus through the exact x and y of every stop
 (hub or node), so legs start and end on their stops. A vertex is usable when it
 lies in the walkable region shrunk by the clearance; an edge when its midpoint
-does too. Walls are at least 0.4 m wide once both clearances are added, wider
-than any grid edge, so no edge can jump a wall. The search state is
+does too. On the normal grid, walls are at least 0.4 m wide once both
+clearances are added, wider than any grid edge, so no edge can jump a wall.
+That no longer holds on the finer zero-clearance grid used for narrow doors,
+so there every edge must lie wholly in the region. The search state is
 (vertex, heading), so each turn costs bend_m exactly.
 """
 import heapq
@@ -16,10 +18,12 @@ from shapely.ops import unary_union
 
 INF = float("inf")
 START = 4
+# About 200 m by 200 m at the 0.2 m grid: far beyond any home, small enough to route.
+MAX_GRID_VERTICES = 1_000_000
 
 
 class GridRouter:
-    def __init__(self, model, stops, settings, spacing_m=0.2):
+    def __init__(self, model, stops, settings, spacing_m=0.2, avoid=None, exclude=None):
         self.s = model.m_per_unit
         layers = model.layers
         blocked = []
@@ -30,6 +34,10 @@ class GridRouter:
             g = layers.get(k)
             if g is not None and not g.is_empty:
                 blocked.append(g)
+        if avoid is not None and not avoid.is_empty:
+            blocked.append(avoid)  # places the validator rejected in an earlier attempt
+        if exclude is not None and not exclude.is_empty:
+            blocked.append(exclude)  # rooms cable may cross only as a last resort
         region = layers["inner"]
         if blocked:
             region = region.difference(unary_union(blocked))
@@ -39,6 +47,9 @@ class GridRouter:
 
         x1, y1, x2, y2 = layers["inner"].bounds
         step = spacing_m / self.s
+        if ((x2 - x1) / step + 1) * ((y2 - y1) / step + 1) > MAX_GRID_VERTICES:
+            raise ValueError(f"plan is {(x2 - x1) * self.s:,.0f} m by {(y2 - y1) * self.s:,.0f} m, too large "
+                             f"to route as a home; check its units")
         xs = set(np.round(np.arange(x1, x2 + step, step), 6).tolist())
         ys = set(np.round(np.arange(y1, y2 + step, step), 6).tolist())
         for x, y in stops.values():
@@ -49,6 +60,7 @@ class GridRouter:
         ok = shapely.contains_xy(self.region, X, Y)
         xi = {x: i for i, x in enumerate(self.xs)}
         yi = {y: j for j, y in enumerate(self.ys)}
+        self.xi, self.yi = xi, yi
         self.stop_at = {}
         for name, (x, y) in stops.items():
             i, j = xi[round(x, 6)], yi[round(y, 6)]
@@ -59,10 +71,26 @@ class GridRouter:
         my = (ya[:-1] + ya[1:]) / 2
         hmid = shapely.contains_xy(self.region, *np.meshgrid(mx, ya, indexing="ij"))
         vmid = shapely.contains_xy(self.region, *np.meshgrid(xa, my, indexing="ij"))
-        self.hok = (ok[:-1, :] & ok[1:, :] & hmid).tolist()
-        self.vok = (ok[:, :-1] & ok[:, 1:] & vmid).tolist()
+        hok = ok[:-1, :] & ok[1:, :] & hmid
+        vok = ok[:, :-1] & ok[:, 1:] & vmid
+        if 2 * settings.clearance_m < spacing_m:
+            # Walls can be thinner than half a grid step here, so an edge could jump one with
+            # both ends and its midpoint clear: check every candidate edge whole.
+            hok &= self._whole_edges(hok, xa, ya, horizontal=True)
+            vok &= self._whole_edges(vok, xa, ya, horizontal=False)
+        self.hok, self.vok = hok.tolist(), vok.tolist()
         self.bend = settings.bend_m / self.s
         self.cache = {}
+
+    def _whole_edges(self, candidates, xa, ya, horizontal):
+        """For each candidate edge, whether the whole segment lies in the region."""
+        out = np.zeros_like(candidates)
+        ii, jj = np.nonzero(candidates)
+        if len(ii):
+            start = np.stack([xa[ii], ya[jj]], axis=1)
+            end = np.stack([xa[ii + 1], ya[jj]], axis=1) if horizontal else np.stack([xa[ii], ya[jj + 1]], axis=1)
+            out[ii, jj] = shapely.covers(self.region, shapely.linestrings(np.stack([start, end], axis=1)))
+        return out
 
     def _search(self, src):
         if src in self.cache:
@@ -102,6 +130,66 @@ class GridRouter:
         self.cache[src] = (dist, parent)
         return self.cache[src]
 
+    def route_avoiding(self, start, goal, used, weight, crossing=0.0):
+        """Cheapest path between two grid points when each edge in `used` costs `weight` times its
+        length on top (what J charges for overlap) and meeting a used line anywhere but the goal
+        costs `crossing` (slide 7: any point where two cables meet), or None. Not cached."""
+        xs, ys, hok, vok, bend = self.xs, self.ys, self.hok, self.vok, self.bend
+        nx, ny = len(xs), len(ys)
+        try:
+            i0, j0 = self.xi[round(start[0], 6)], self.yi[round(start[1], 6)]
+            i1, j1 = self.xi[round(goal[0], 6)], self.yi[round(goal[1], 6)]
+        except KeyError:
+            return None
+        goal_v = i1 * ny + j1
+        # Vertices on a used line: arriving there off that line is a meeting of two cables.
+        touched = set()
+        for k, i, j in used:
+            touched.add(i * ny + j)
+            touched.add((i + 1) * ny + j if k == "h" else i * ny + j + 1)
+        dist = [INF] * (nx * ny * 5)
+        parent = [-1] * (nx * ny * 5)
+        first = (i0 * ny + j0) * 5 + START
+        dist[first] = 0.0
+        heap = [(0.0, first)]
+        found = None
+        while heap:
+            d, state = heapq.heappop(heap)
+            if d > dist[state]:
+                continue
+            v, h = divmod(state, 5)
+            if v == goal_v:
+                found = state
+                break
+            i, j = divmod(v, ny)
+            moves = []
+            if i + 1 < nx and hok[i][j]:
+                moves.append((v + ny, 0, xs[i + 1] - xs[i], ("h", i, j)))
+            if i > 0 and hok[i - 1][j]:
+                moves.append((v - ny, 1, xs[i] - xs[i - 1], ("h", i - 1, j)))
+            if j + 1 < ny and vok[i][j]:
+                moves.append((v + 1, 2, ys[j + 1] - ys[j], ("v", i, j)))
+            if j > 0 and vok[i][j - 1]:
+                moves.append((v - 1, 3, ys[j] - ys[j - 1], ("v", i, j - 1)))
+            for nv, nh, step, edge in moves:
+                nd = d + step * (1 + weight if edge in used else 1) + (bend if h != START and h != nh else 0.0)
+                if crossing and nv in touched and nv != goal_v and edge not in used:
+                    nd += crossing
+                ns = nv * 5 + nh
+                if nd < dist[ns]:
+                    dist[ns] = nd
+                    parent[ns] = state
+                    heapq.heappush(heap, (nd, ns))
+        if found is None:
+            return None
+        pts, state = [], found
+        while state != -1:
+            vv = state // 5
+            pts.append((xs[vv // ny], ys[vv % ny]))
+            state = parent[state]
+        pts.reverse()
+        return _merge_collinear(pts)
+
     def cost(self, a, b):
         """Cheapest length + bends from stop a to stop b, in metres (inf if unreachable)."""
         if a == b:
@@ -128,6 +216,40 @@ class GridRouter:
         pts.reverse()
         return _merge_collinear(pts)
 
+    def vertices_on(self, path):
+        """Grid vertices along a path, in order, without its two ends: (x, y, segment, is_corner)."""
+        pts = [tuple(p) for p in path]
+        out = []
+        for seg, (a, b) in enumerate(zip(pts, pts[1:])):
+            if a[1] == b[1]:
+                lo, hi = sorted((a[0], b[0]))
+                inner = [(x, a[1]) for x in self.xs if lo < x < hi]
+                reverse = b[0] < a[0]
+            else:
+                lo, hi = sorted((a[1], b[1]))
+                inner = [(a[0], y) for y in self.ys if lo < y < hi]
+                reverse = b[1] < a[1]
+            out += [(x, y, seg, False) for x, y in (reversed(inner) if reverse else inner)]
+            if seg + 1 < len(pts) - 1:
+                out.append((b[0], b[1], seg, True))
+        return out
+
+
+def path_edges(router, path):
+    """The grid edges a path runs along, as ("h", i, j) and ("v", i, j); points off the grid are skipped."""
+    edges = set()
+    for a, b in zip(path, path[1:]):
+        try:
+            ia, ja = router.xi[round(a[0], 6)], router.yi[round(a[1], 6)]
+            ib, jb = router.xi[round(b[0], 6)], router.yi[round(b[1], 6)]
+        except KeyError:
+            continue
+        if ja == jb:
+            edges.update(("h", i, ja) for i in range(min(ia, ib), max(ia, ib)))
+        elif ia == ib:
+            edges.update(("v", ia, j) for j in range(min(ja, jb), max(ja, jb)))
+    return edges
+
 
 def _merge_collinear(pts):
     out = [pts[0]]
@@ -143,6 +265,22 @@ def _merge_collinear(pts):
     if len(out) == 1:
         out.append(out[0])
     return [list(p) for p in out]
+
+
+def best_cycle(router, nodes):
+    """Cheapest closed tour through the nodes alone: fix the first, try every order of the rest."""
+    first, *rest = sorted(nodes)
+    best, best_order = INF, [first, *rest]
+    for perm in itertools.permutations(rest):
+        seq = (first,) + perm + (first,)
+        total = 0.0
+        for a, b in zip(seq, seq[1:]):
+            total += router.cost(a, b)
+            if total >= best:
+                break
+        if total < best:
+            best, best_order = total, [first, *perm]
+    return best_order, best
 
 
 def best_ring_order(router, hub, nodes):

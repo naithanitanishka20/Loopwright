@@ -8,7 +8,7 @@ After each phase the builder pushes a tag (`phase-1`, `phase-2`, ...). Testers t
 git clone <repo-url> && cd loopwright
 git checkout -b test/phase-N phase-N      # start from the phase tag, not from main
 python -m venv .venv && .venv/Scripts/activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,import,serve,e2e]"
 python scripts/fetch_resplan.py
 python -m pytest -q
 # ...test, fix, commit with a clear message...
@@ -34,11 +34,11 @@ Dataset tests carry the `dataset` marker and skip when `data/ResPlan.zip` is abs
 ## Browser tests (Playwright)
 
 ```bash
-python -m pip install -e ".[e2e]"
+python -m pip install -e ".[dev,import,serve,e2e]"
 python -m pytest -m e2e -q
 ```
 
-They use Playwright's own Chromium if you ran `python -m playwright install chromium`, otherwise your installed Edge or Chrome. Without Playwright they skip.
+They use Playwright's own Chromium if you ran `python -m playwright install chromium`, otherwise your installed Edge or Chrome. Without Playwright they skip. The app tests start a real `loopwright serve` on a free local port and drive it like a user: drawing rooms, clicking doors, cutting legs, uploading a plan image.
 
 ## Phase-specific checks
 

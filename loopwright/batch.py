@@ -51,6 +51,12 @@ def sample(plans, n, seed):
     return rng.sample(plans, min(n, len(plans)))
 
 
+def p50_p95(times):
+    """Runtime percentiles as every Loopwright report quotes them."""
+    t = sorted(times)
+    return t[len(t) // 2], t[int(len(t) * 0.95) - 1]
+
+
 def report(rows, settings=DEFAULT):
     status = collections.Counter(r["status"] for r in rows)
     causes = collections.Counter(r["cause"] for r in rows if r["status"] != "valid")
@@ -59,7 +65,6 @@ def report(rows, settings=DEFAULT):
         if r["status"] != "valid" and len(examples[r["cause"]]) < 3:
             examples[r["cause"]].append(str(r["id"]))
     solved = [r for r in rows if r["status"] != "crash"]
-    times = sorted(r["runtime_s"] for r in rows)
     lines = [f"# Batch report", "",
              f"Plans: {len(rows)} · zone rule: {settings.zone_link} · caps: {settings.max_area_m2:g} m², {settings.max_nodes} nodes", "",
              "| Status | Plans |", "|---|---|"]
@@ -71,7 +76,7 @@ def report(rows, settings=DEFAULT):
         greedy = [r for r in solved if r.get("hubs_greedy") is not None]
         lines += [f"Hubs: {sum(r['hubs'] for r in solved)} against a lower bound of {sum(r['hub_lower_bound'] for r in solved)}"
                   + (f" and greedy's {sum(r['hubs_greedy'] for r in greedy)}" if greedy else ""),
-                  f"Runtime per plan: p50 {times[len(times) // 2]:.2f} s, p95 {times[int(len(times) * 0.95) - 1]:.2f} s"]
+                  "Runtime per plan: p50 {:.2f} s, p95 {:.2f} s".format(*p50_p95(r["runtime_s"] for r in rows))]
     if causes:
         lines += ["", "| Cause | Plans | Examples |", "|---|---|---|"]
         lines += [f"| {c} | {n} | {', '.join(examples[c])} |" for c, n in causes.most_common()]
