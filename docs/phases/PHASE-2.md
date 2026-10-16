@@ -21,6 +21,14 @@ Tag: `phase-2`
 - `optimize.zones.lower_bound` rejects non-finite, negative and boolean inputs.
 - The tester's stand-ins (`loopwright/routing.py`, `solver.py`, `validator.py`) were folded into the Phase 2 packages; `living_pieces` accepts `"split"`, the value `geometry/spaces.py` uses.
 
+## From the Phase 2 test round
+
+- Inputs are checked before use. `geometry.spaces.scale` needs a finite positive `m_per_unit` or `area`. The organisers' JSON adapter rejects a non-object document, non-string keys, booleans and non-finite coordinates, and reports unreadable geometry as `invalid geometry`. `feasible_zones`, `l_leg` and `nearest_order` reject non-finite and boolean values, and the fetcher rejects a timeout that isn't a finite positive number.
+- JSON output refuses NaN and Infinity. `write_json` builds the text before it opens the file, so a bad value leaves no half-written file.
+- `ranking_key` must hold exactly two finite numbers.
+- `geometry.heal.valid` falls back to `buffer(0)` only on GEOS and value errors.
+- New tests: `tests/unit/test_phase2_adversarial.py`, solve-then-validate on an organisers' JSON file through the CLI, the fetcher's timeout check and partial-file cleanup, and a browser test that renders a real overlay.
+
 ## Run
 
 ```bash

@@ -33,6 +33,12 @@ def feasible_zones(areas, settings=DEFAULT, connected=None, relax_singletons=Tru
     relax_singletons keeps a single over-cap room as its own zone, so the plan
     still gets a (flagged) design instead of no answer (assumptions Q11).
     """
+    try:
+        areas = list(areas)
+    except TypeError as exc:
+        raise ValueError("areas must be a sequence of finite non-negative numbers") from exc
+    if any(isinstance(area, bool) or not isinstance(area, (int, float)) or not math.isfinite(area) or area < 0 for area in areas):
+        raise ValueError("areas must be a sequence of finite non-negative numbers")
     n = len(areas)
     size = 1 << n
     area = [0.0] * size

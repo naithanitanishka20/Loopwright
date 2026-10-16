@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import os
 import pathlib
 import re
@@ -48,6 +49,8 @@ def _file_digest(path):
 
 def download(destination, sha256, *, opener=urllib.request.urlopen, timeout=DEFAULT_TIMEOUT_S):
     destination = pathlib.Path(destination)
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("timeout must be a finite number greater than zero")
     expected = _check_digest(sha256)
     _check_url(URL)
     destination.parent.mkdir(parents=True, exist_ok=True)

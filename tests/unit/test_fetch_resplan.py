@@ -1,5 +1,6 @@
 import hashlib
 import importlib
+import math
 
 import pytest
 
@@ -109,3 +110,23 @@ def test_main_reads_the_digest_from_the_environment(monkeypatch):
     fetcher.main([])
 
     assert seen["sha256"] == "a" * 64
+
+
+@pytest.mark.parametrize("timeout", [0, -1, math.nan, math.inf, True])
+def test_download_rejects_invalid_timeout(tmp_path, timeout):
+    with pytest.raises(ValueError, match="timeout"):
+        fetcher.download(tmp_path / "ResPlan.zip", "0" * 64, timeout=timeout)
+
+
+def test_download_removes_a_partial_file_when_size_limit_is_exceeded(tmp_path, monkeypatch):
+    target = tmp_path / "ResPlan.zip"
+    monkeypatch.setattr(fetcher, "MAX_BYTES", 3)
+
+    def opener(request, timeout):
+        return FakeResponse(b"too large")
+
+    with pytest.raises(ValueError, match="maximum"):
+        fetcher.download(target, "0" * 64, opener=opener)
+
+    assert not target.exists()
+    assert not list(tmp_path.glob("*.part"))

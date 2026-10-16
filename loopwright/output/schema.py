@@ -21,7 +21,7 @@ def canonical_json(obj, exclude=("runtime_s",)):
         if isinstance(o, list):
             return [strip(v) for v in o]
         return o
-    return json.dumps(_round(strip(obj)), ensure_ascii=False, separators=(",", ":"), sort_keys=False)
+    return json.dumps(_round(strip(obj)), ensure_ascii=False, separators=(",", ":"), sort_keys=False, allow_nan=False)
 
 
 def digest(obj):
@@ -29,5 +29,6 @@ def digest(obj):
 
 
 def write_json(obj, path):
+    text = json.dumps(_round(obj), ensure_ascii=False, indent=1, allow_nan=False)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(_round(obj), f, ensure_ascii=False, indent=1)
+        f.write(text)

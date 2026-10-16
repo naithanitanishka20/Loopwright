@@ -1,5 +1,6 @@
 """Geometry repair helpers. Raw ResPlan polygons can be invalid."""
 import shapely
+from shapely.errors import GEOSException
 from shapely.geometry import Polygon
 
 
@@ -21,7 +22,7 @@ def valid(g):
         return None
     try:
         return shapely.make_valid(g)
-    except Exception:
+    except (GEOSException, ValueError):
         return g.buffer(0)
 
 

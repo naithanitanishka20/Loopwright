@@ -25,7 +25,7 @@ Each fix commit names the problem it fixes and, where possible, adds a test that
 | Bug fixes | A failing test at the public interface that exposed the bug, first | Every fix starts with a test that failed before it |
 | Code review | Read the diff since the last tag | Correctness bugs, dead code, duplication |
 | Architecture | Imports in `loopwright/validate/` | The validator must not import solver modules; CLI ergonomics |
-| Security | Crafted pickle, JSON and `--out` paths | Unsafe loading of untrusted files, path handling in the CLI |
+| Security | Crafted pickle, JSON, geometry and `--out` paths | Unsafe loading of untrusted files, path handling in the CLI, NaN, Infinity or booleans accepted as numbers |
 | Browser and visual | `python -m pytest -m e2e -q`, then open the SVG and viewer | The overlay renders, labels readable, no overlaps |
 | Test quality | Read the tests | Tests that can't fail, duplicated tests |
 

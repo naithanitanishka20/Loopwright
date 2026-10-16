@@ -23,6 +23,7 @@ The download is refused unless its SHA-256 matches the pinned digest; pass `--sh
 loopwright solve --id 14433 --out out/          # writes out/14433.json and out/14433.svg
 loopwright validate out/14433.json --id 14433   # structure, then independent checks V00-V14
 loopwright validate out/14433.json              # structure only: types, finite numbers, schema keys
+loopwright solve --json plan.json --out out/    # an organisers' JSON file instead of a dataset id
 loopwright config                               # the default settings as JSON
 ```
 
