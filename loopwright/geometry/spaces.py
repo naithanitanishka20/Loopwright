@@ -11,6 +11,7 @@ from shapely.ops import unary_union
 
 from loopwright.config import DEFAULT
 from loopwright.geometry.heal import polygons, valid
+from loopwright.geometry.nodes import room_pole
 
 ELIGIBLE_TYPES = ("living", "kitchen", "bedroom", "storage")
 OTHER_TYPES = ("bathroom", "stair")
@@ -82,6 +83,20 @@ def build_model(plan, settings=DEFAULT):
         for i, p in enumerate(polygons(plan.get(t), sliver)):
             spaces.append(Space(f"{t}_{i}", t, p, p.area * s2, t in ELIGIBLE_TYPES))
 
+    # Eval-01 meeting: a node keeps node_wall_m from its walls, and very small rooms are left
+    # out. A room under min_room_m2, or with no point that far from its walls, gets no node.
+    for sp in spaces:
+        if not sp.eligible:
+            continue
+        if sp.area_m2 < settings.min_room_m2:
+            reason = f"{sp.area_m2:.1f} m², under the {settings.min_room_m2:g} m² minimum"
+        else:
+            clearance = room_pole(sp.geom, s)[1]
+            if clearance >= settings.node_wall_m:
+                continue
+            reason = f"no point {settings.node_wall_m:g} m from its walls (at most {clearance:.2f} m)"
+        sp.eligible = False
+        diagnostics.append({"code": "ROOM_NEGLECTED", "room": sp.id, "reason": reason})
     for sp in spaces:
         if sp.eligible and sp.area_m2 > settings.max_area_m2 + 1e-9:
             diagnostics.append({"code": "ROOM_OVER_CAP", "room": sp.id, "area_m2": round(sp.area_m2, 1)})

@@ -1,11 +1,9 @@
-"""Rules V00-V14 checked against the raw plan. V05 and V13 need the door graph
-and are reported as not checked until Phase 3.
-"""
+"""Rules V00-V16 checked against the raw plan."""
 import math
 
 import shapely
 from shapely.geometry import LineString, Point, Polygon
-from shapely.ops import unary_union
+from shapely.ops import polylabel, unary_union
 
 EPS_LEN = 1e-6
 ELIGIBLE = ("living", "kitchen", "bedroom", "storage")
@@ -77,7 +75,8 @@ def validate(plan, out, settings):
     per_room = {}
     for n in out["nodes"]:
         per_room.setdefault(n["room"], []).append(n)
-    bad = [r for r in eligible if len(per_room.get(r, [])) != 1]
+    required = {r for r in eligible if _needs_node(rooms[r], s, settings)}
+    bad = [r for r in eligible if len(per_room.get(r, [])) != 1 and (r in required or per_room.get(r))]
     outside = [n["id"] for n in out["nodes"] if n["room"] not in rooms or not rooms[n["room"]].buffer(EPS_LEN).covers(Point(n["pos"]))]
     extra = [r for r in per_room if r not in eligible]
     _check(checks, "V01", not bad and not outside and not extra,
@@ -202,8 +201,39 @@ def validate(plan, out, settings):
         detail = f"{texts[rule]}: " + ", ".join(f"{w['ring']} leg {w['leg']}" for w in hits) if hits else ""
         _check(checks, rule, not hits, detail, hits or None)
 
+    # V15: every node keeps node_wall_m from its room's walls (Eval-01 meeting)
+    near = []
+    for n in out["nodes"]:
+        room = rooms.get(n["room"])
+        if room is not None:
+            d = room.boundary.distance(Point(n["pos"])) * s
+            if d < settings.node_wall_m - settings.tolerance_m:
+                near.append(f"{n['id']} {d:.2f} m")
+    _check(checks, "V15", not near, f"nodes closer than {settings.node_wall_m:g} m to a wall: {', '.join(near)}" if near else "")
+
+    # V16: a hub keeps min_hub_node_m from every node of its ring (assumptions Q7)
+    close = []
+    for n in out["nodes"]:
+        h = hubs.get(n["hub"])
+        if h is not None:
+            d = Point(h["pos"]).distance(Point(n["pos"])) * s
+            if d < settings.min_hub_node_m - settings.tolerance_m:
+                close.append(f"{h['id']}-{n['id']} {d:.2f} m")
+    _check(checks, "V16", not close, f"hubs closer than {settings.min_hub_node_m:g} m to a node: {', '.join(close)}" if close else "")
+
     valid = all(c["pass"] is not False for c in checks)
     return {"valid": valid, "checks": checks}
+
+
+def _needs_node(room, s, settings):
+    """Eval-01 meeting: a room under min_room_m2, or with no point node_wall_m from its walls, gets no node."""
+    if room.area * s * s < settings.min_room_m2:
+        return False
+    piece = max(_polys(room), key=lambda p: p.area)
+    p = polylabel(piece, tolerance=0.01 / s)
+    if not piece.contains(p):
+        p = piece.representative_point()
+    return piece.boundary.distance(p) * s >= settings.node_wall_m
 
 
 def _portals(rooms, building, walls, windows, doors, wd, s):

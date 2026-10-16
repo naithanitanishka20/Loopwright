@@ -34,8 +34,16 @@ def test_a_zone_just_under_the_area_cap_passes_the_validator(resplan_plans):
 
 
 def test_a_leg_the_validator_rejects_is_rerouted(resplan_plans):
-    # 13606: the router crossed into an unlabelled pocket where the validator sees no passage.
+    # 7683: the router crossed into a pocket where the validator sees no passage.
+    out, _ = solve(get_plan(resplan_plans, 7683), DEFAULT)
+    assert out["validation"]["valid"] is True
+    assert any(d["code"] == "REROUTED" for d in out["diagnostics"])
+
+
+def test_scraps_labelled_as_rooms_get_no_node(resplan_plans):
+    # 13606: two 'bedrooms' of 1.8 m² and 1.2 m² are left out (Eval-01: very small rooms get no node),
+    # so the flat needs one hub, its lower bound.
     out, _ = solve(get_plan(resplan_plans, 13606), DEFAULT)
     assert out["validation"]["valid"] is True
-    assert out["metrics"]["hubs"] == 2
-    assert any(d["code"] == "REROUTED" for d in out["diagnostics"])
+    assert out["metrics"]["hubs"] == out["metrics"]["hub_lower_bound"] == 1
+    assert sorted(d["room"] for d in out["diagnostics"] if d["code"] == "ROOM_NEGLECTED") == ["bedroom_1", "bedroom_3"]

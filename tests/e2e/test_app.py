@@ -99,7 +99,7 @@ def test_drawing_two_rooms_with_a_door_gives_one_hub(page):
     draw_and_solve(page)
     wait_metric(page, "hubs", "1")
     assert "1 hub" in page.locator("#explain").inner_text()
-    assert page.locator("#rules li").count() == 15
+    assert page.locator("#rules li").count() == 17
     assert page.locator(".leg").count() == 3
 
 

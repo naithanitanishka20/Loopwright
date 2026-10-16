@@ -47,9 +47,10 @@ class Settings:
     bend_m: float = 0.3
     crossing_m: float = 3.0
     overlap_factor: float = 2.0
-    # Q3: what counts as a bend, an overlap, a crossing
+    # Q3, answered by the organisers' slide 7: turns at nodes and the hub are bends; crossings
+    # and overlap count inside and between rings; within 1 mm is the same point or line
     bend_at_node: bool = True
-    lane_gap_m: float = 0.4
+    tolerance_m: float = 0.001
     count_self_crossings: bool = True
     # Q4 and the area cap
     max_nodes: int = 5
@@ -57,14 +58,20 @@ class Settings:
     # Q5-Q14
     input_format: str = "auto"
     node_rule: str = "pole"
+    # Q6, answered in the Eval-01 meeting: a node keeps this far from its room's walls
+    node_wall_m: float = 0.5
     hub_mount: str = "free"
-    min_hub_node_m: float = 0.0
+    # Q7, Eval-01 meeting: a hub may not sit on a node ("0 cannot be the case"); we keep it this far
+    min_hub_node_m: float = 0.5
     pass_through: tuple = ("circulation", "bathroom", "stair", "other_zones")
     living_pieces: str = "merge"
     axis_frame: str = "drawing"
     infeasible_output: str = "flag_and_relaxed"
     time_limit_s: float = 10.0
     area_source: str = "polygon"
+    # Q17, Eval-01 meeting: eligible rooms under this area get no node (rooms too narrow
+    # for a node node_wall_m from the walls get none either)
+    min_room_m2: float = 2.0
     # Geometry constants (not rule readings)
     clearance_m: float = 0.10
     sliver_m2: float = 0.5
@@ -75,13 +82,15 @@ class Settings:
         _finite_number("crossing_m", self.crossing_m, 0)
         _finite_number("overlap_factor", self.overlap_factor, 0)
         _boolean("bend_at_node", self.bend_at_node)
-        _finite_number("lane_gap_m", self.lane_gap_m, 0)
+        _finite_number("tolerance_m", self.tolerance_m, 0)
         _boolean("count_self_crossings", self.count_self_crossings)
         if type(self.max_nodes) is not int or self.max_nodes < 1:
             raise ValueError("max_nodes must be a positive integer")
         _finite_number("max_area_m2", self.max_area_m2, strictly_positive=True)
         _choice("input_format", self.input_format, INPUT_FORMATS)
         _choice("node_rule", self.node_rule, NODE_RULES)
+        _finite_number("node_wall_m", self.node_wall_m, 0)
+        _finite_number("min_room_m2", self.min_room_m2, 0)
         _choice("hub_mount", self.hub_mount, HUB_MOUNTS)
         _finite_number("min_hub_node_m", self.min_hub_node_m, 0)
 

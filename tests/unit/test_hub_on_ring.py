@@ -21,14 +21,14 @@ def test_a_hub_on_the_path_between_nodes_adds_no_cable():
     assert (ring["length_m"], ring["bends"]) == (12.0, 2)
 
 
-def test_a_hub_on_a_corner_of_the_path_saves_that_bend():
+def test_a_turn_at_the_hub_counts_like_any_other():
     # Nodes at (3, 3) and (9, 5) with the door between: 8 m each way and 2 bends per leg,
-    # plus a turn at each node; a hub at one of the corners takes one bend away.
+    # plus a turn at each node. Slide 7 counts turns at the hub too, so a hub on a corner saves nothing.
     ring = ring_of([{"type": "living", "polygon": square(0, 0, 6, 6)},
                     {"type": "bedroom", "polygon": square(6, 2, 12, 8)}], doors=[(0, 1)])
-    assert (ring["length_m"], ring["bends"]) == (16.0, 5)
+    assert (ring["length_m"], ring["bends"]) == (16.0, 6)
 
 
 def test_a_one_room_zone_keeps_its_out_and_back_ring():
     ring = ring_of([{"type": "living", "polygon": square(0, 0, 6, 6)}], doors=[])
-    assert ring["length_m"] == 1.2
+    assert ring["length_m"] == 1.0  # the hub 0.5 m from the node, there and back

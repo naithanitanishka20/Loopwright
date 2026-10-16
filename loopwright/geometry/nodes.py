@@ -6,15 +6,24 @@ from loopwright.config import DEFAULT
 from loopwright.geometry.heal import largest
 
 
+# polylabel precision: the pole found is within this of the true farthest point from the walls
+POLE_TOLERANCE_M = 0.01
+
+
+def room_pole(geom, m_per_unit):
+    """The point of the room (its largest piece) farthest from its walls, and that distance in metres."""
+    piece = largest(geom)
+    p = polylabel(piece, tolerance=POLE_TOLERANCE_M / m_per_unit)
+    if not piece.contains(p):
+        p = piece.representative_point()
+    return p, piece.boundary.distance(p) * m_per_unit
+
+
 def place_nodes(model, settings=DEFAULT):
     """Map room id to an (x, y) node position inside that room, in plan units."""
-    tolerance = 0.05 / model.m_per_unit
     nodes = {}
     for sp in model.eligible:
-        piece = largest(sp.geom)
-        p = polylabel(piece, tolerance=tolerance)
-        if not piece.contains(p):
-            p = piece.representative_point()
+        p, _ = room_pole(sp.geom, model.m_per_unit)
         nodes[sp.id] = (round(p.x, 3), round(p.y, 3))
     return nodes
 

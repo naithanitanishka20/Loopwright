@@ -47,15 +47,17 @@ def walkable_node(room_geom, region, m_per_unit):
     return (round(p.x, 3), round(p.y, 3))
 
 
-def walkable_hub(room_geom, node, region, m_per_unit):
-    """A hub point in the room's walkable part, near the node but not on it."""
+def walkable_hub(room_geom, node, region, m_per_unit, min_m=0.5):
+    """A hub point in the room's walkable part, min_m from the node (as close as allowed: a
+    one-room ring runs there and back), straight across first so its legs have no bend."""
     part = room_geom.intersection(region)
     x, y = node
-    for offset_m in (0.6, 0.4, 0.25):
-        d = offset_m / m_per_unit
-        for dx, dy in ((d, 0), (-d, 0), (0, d), (0, -d), (d, d), (-d, d), (d, -d), (-d, -d)):
+    for offset_m in (min_m, min_m + 0.25, min_m + 0.5, min_m + 1.0):
+        d = max(offset_m, 1e-3) / m_per_unit
+        e = d / 2 ** 0.5
+        for dx, dy in ((d, 0), (-d, 0), (0, d), (0, -d), (e, e), (-e, e), (e, -e), (-e, -e)):
             q = Point(x + dx, y + dy)
             if part.contains(q):
                 return (round(q.x, 3), round(q.y, 3))
-    q = part.representative_point() if not part.is_empty else Point(x, y)
+    q = part.representative_point() if not part.is_empty else Point(x + min_m / m_per_unit, y)
     return (round(q.x, 3), round(q.y, 3))

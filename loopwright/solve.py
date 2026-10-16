@@ -69,13 +69,12 @@ def _explain_extra_hubs(model, zones, adj, lb, diagnostics):
         diagnostics.append({"code": "EXTRA_HUB", "room": room, "reason": reason})
 
 
-def _hub_on_ring(router, zone, model):
+def _hub_on_ring(router, zone, model, nodes_at, min_units):
     """Put the hub on the cheapest tour through the zone's nodes, inside one of the zone's rooms.
 
-    A hub on the path between two consecutive nodes adds no cable; on a corner of
-    that path it also removes the bend there, since turns at the hub don't count.
-    Returns (rooms in ring order, hub position, hub room, leg paths), or None when
-    no point of the tour lies inside the zone's rooms.
+    A hub on the path between two consecutive nodes adds no cable. It keeps min_units
+    from every node of the zone. Returns (rooms in ring order, hub position, hub room,
+    leg paths), or None when no point of the tour qualifies.
     """
     order, cost = best_cycle(router, zone)
     if cost == INF:
@@ -89,7 +88,7 @@ def _hub_on_ring(router, zone, model):
         for x, y, seg, corner in router.vertices_on(path):
             pt = Point(x, y)
             room = next((r for r, g in rooms if g.covers(pt)), None)
-            if room is None:
+            if room is None or min(pt.distance(Point(nodes_at[r])) for r in zone) < min_units:
                 continue
             key = (corner, round(min(pt.distance(e) for e in ends), 6))
             if best is None or key > best[0]:
@@ -170,7 +169,8 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
     hub_pos = {}
     for zi, zone in enumerate(zones, start=1):
         main_room = max(zone, key=lambda r: model.space(r).area_m2)
-        hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s))
+        hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s,
+                                                     settings.min_hub_node_m))
     stops = {**{rid: pos for rid, pos in nodes_at.items()}, **{h: pos for h, (_, pos) in hub_pos.items()}}
     router = GridRouter(model, stops, settings, avoid=avoid)
 
@@ -190,7 +190,8 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
             zrouter = fallback
             diagnostics.append({"code": "ROUTER_FALLBACK", "ring": hub_id})
         unreachable |= {frozenset((a, b)) for i, a in enumerate(zone) for b in zone[i + 1:] if zrouter.cost(a, b) == INF}
-        on_ring = _hub_on_ring(zrouter, zone, model) if len(zone) >= 2 else None
+        min_units = (settings.min_hub_node_m - settings.tolerance_m) / s
+        on_ring = _hub_on_ring(zrouter, zone, model, nodes_at, min_units) if len(zone) >= 2 else None
         if on_ring is not None:
             order, hpos, main_room, leg_paths = on_ring
         else:
