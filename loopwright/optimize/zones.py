@@ -88,5 +88,58 @@ def min_hubs(n, feasible):
     return best[full], zones
 
 
+def min_hubs_cheapest(n, feasible, cost):
+    """The exact minimum number of zones and, among the partitions that reach it, one with the
+    lowest total cost(zone). cost is called only for zones that can be part of such a partition,
+    and not at all when a single partition reaches the minimum."""
+    count, zones = min_hubs(n, feasible)
+    if count >= INF or count <= 1:
+        return count, zones
+    size = 1 << n
+    best, ways = [INF] * size, [0] * size  # fewest zones covering each mask, and in how many ways (capped at 2)
+    best[0], ways[0] = 0, 1
+    for mask in range(1, size):
+        low = mask & -mask
+        rest = mask ^ low
+        sub = rest
+        while True:
+            zone = sub | low
+            if feasible[zone] and best[mask ^ zone] < INF:
+                c = best[mask ^ zone] + 1
+                if c < best[mask]:
+                    best[mask], ways[mask] = c, ways[mask ^ zone]
+                elif c == best[mask]:
+                    ways[mask] = min(2, ways[mask] + ways[mask ^ zone])
+            if sub == 0:
+                break
+            sub = (sub - 1) & rest
+    if ways[size - 1] < 2:
+        return count, zones
+    total, choice, zone_cost = [math.inf] * size, [0] * size, {}
+    total[0] = 0.0
+    for mask in range(1, size):
+        if best[mask] >= INF:
+            continue
+        low = mask & -mask
+        rest = mask ^ low
+        sub = rest
+        while True:
+            zone = sub | low
+            prev = mask ^ zone
+            if feasible[zone] and best[prev] + 1 == best[mask] and total[prev] < math.inf:
+                if zone not in zone_cost:
+                    zone_cost[zone] = cost(zone)
+                if total[prev] + zone_cost[zone] < total[mask]:
+                    total[mask], choice[mask] = total[prev] + zone_cost[zone], zone
+            if sub == 0:
+                break
+            sub = (sub - 1) & rest
+    zones, mask = [], size - 1
+    while mask:
+        zones.append(choice[mask])
+        mask ^= choice[mask]
+    return count, zones
+
+
 def members(mask, n):
     return [k for k in range(n) if mask >> k & 1]

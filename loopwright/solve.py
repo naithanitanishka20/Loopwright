@@ -11,7 +11,7 @@ from loopwright.geometry.walkable import piece_index, pieces, walkable_hub, walk
 from loopwright.geometry.portals import connector_ids, door_graph, is_connected
 from loopwright.geometry.spaces import OTHER_TYPES, build_model
 from loopwright.optimize.baseline import greedy_zones
-from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs
+from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs_cheapest
 from loopwright.routing.grid import INF, GridRouter, best_cycle, best_ring_order
 from loopwright.routing.straight import l_leg
 from loopwright.validate.rules import validate
@@ -22,7 +22,7 @@ MAX_REPAIRS = 3
 AVOID_M = 0.3
 
 
-def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset()):
+def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset(), zone_cost=None):
     elig = model.eligible
     ids = [sp.id for sp in elig]
     areas = [sp.area_m2 for sp in elig]
@@ -45,7 +45,9 @@ def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset()):
         return is_connected(rooms, adj, connectors)
 
     feasible = feasible_zones(areas, settings, connected=connected)
-    count, masks = min_hubs(n, feasible)
+    # Fewest hubs first; among groupings that tie, the one with the least cable.
+    cost = (lambda m: zone_cost([ids[k] for k in members(m, n)])) if zone_cost else (lambda m: 0.0)
+    count, masks = min_hubs_cheapest(n, feasible, cost)
     zones = [[ids[k] for k in members(m, n)] for m in masks]
     zones.sort(key=lambda z: -sum(model.space(r).area_m2 for r in z))
     return zones, count, adj
@@ -125,12 +127,15 @@ def solve(plan, settings=DEFAULT):
                 base.append({"code": "ROOM_NOT_WALKABLE", "room": sp.id})
     piece_of = {rid: piece_index(pos, parts) for rid, pos in nodes_at.items()}
 
+    zone_cost = _zone_cost(model, settings, nodes_at)
+
     # Repair pass, only when something fails: rooms the router can't join stop sharing
     # a hub, and places where the validator sees no passage are avoided on the next try.
     unroutable, avoid_at = frozenset(), []
     for attempt in range(MAX_REPAIRS + 1):
         avoid = unary_union([Point(p).buffer(AVOID_M / s) for p in avoid_at]) if avoid_at else None
-        out, unreachable = _design(plan, model, settings, nodes_at, region, piece_of, list(base), unroutable, avoid)
+        out, unreachable = _design(plan, model, settings, nodes_at, region, piece_of, list(base), unroutable, avoid,
+                                   zone_cost)
         if attempt == MAX_REPAIRS:
             break
         if unreachable:
@@ -147,13 +152,38 @@ def solve(plan, settings=DEFAULT):
     return out, model
 
 
+def _excluded(model):
+    """Bathrooms and stairs, less any part an eligible room's outline also covers (labels can overlap)."""
+    other = unary_union([sp.geom for sp in model.spaces if sp.type in OTHER_TYPES])
+    if other.is_empty:
+        return other
+    return other.difference(unary_union([sp.geom for sp in model.eligible]))
+
+
+def _zone_cost(model, settings, nodes_at):
+    """Cable cost (metres) of the cheapest closed tour through a zone's nodes, to choose between
+    groupings with the same hub count. Its router is built only when a plan has such a tie."""
+    state = {}
+
+    def cost(rooms):
+        if len(rooms) == 1:
+            return 2 * settings.min_hub_node_m + 2 * settings.bend_m  # out and back to a hub beside the node
+        if "router" not in state:
+            excluded = _excluded(model)
+            state["router"] = GridRouter(model, {r: nodes_at[r] for r in nodes_at}, settings,
+                                         exclude=None if excluded.is_empty else excluded)
+        _, c = best_cycle(state["router"], rooms)
+        return c if c < INF else 1e6  # routes on the finer grid later; just avoid it when there's a choice
+    return cost
+
+
 def _illegal_crossings(out):
     """Points where the validator saw a leg change space away from any door or passage (V13)."""
     return [tuple(pt) for c in out["validation"]["checks"] if c["id"] == "V13" and c["pass"] is False
             for w in c.get("where") or [] for pt in w.get("at") or []]
 
 
-def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unroutable, avoid):
+def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unroutable, avoid, zone_cost=None):
     """One full design for fixed nodes: zones, hubs, rings, metrics and validation.
 
     Returns the design and the pairs of zone rooms the router couldn't join.
@@ -163,18 +193,19 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
     total_area = sum(sp.area_m2 for sp in elig)
     n = len(elig)
     lb = lower_bound(total_area, n, settings)
-    zones, hub_minimum, adj = _zones(model, settings, diagnostics, piece_of, unroutable)
+    zones, hub_minimum, adj = _zones(model, settings, diagnostics, piece_of, unroutable, zone_cost)
     _explain_extra_hubs(model, zones, adj, lb, diagnostics)
 
     hub_pos = {}
     for zi, zone in enumerate(zones, start=1):
         main_room = max(zone, key=lambda r: model.space(r).area_m2)
         hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s,
-                                                     settings.min_hub_node_m, [nodes_at[r] for r in zone]))
+                                                     settings.min_hub_node_m, [nodes_at[r] for r in zone],
+                                                     settings.clearance_m + 0.05))
     stops = {**{rid: pos for rid, pos in nodes_at.items()}, **{h: pos for h, (_, pos) in hub_pos.items()}}
     # Bathrooms and stairs are blocked unless no route avoids them (Eval-01 meeting), and narrow
     # doors can close under the clearance, so each zone tries these routers in turn.
-    excluded = unary_union([sp.geom for sp in model.spaces if sp.type in OTHER_TYPES])
+    excluded = _excluded(model)
     tries = [(False, False), (True, False)] + ([] if excluded.is_empty else [(False, True), (True, True)])
     routers = {}
 

@@ -27,6 +27,7 @@ def test_extra_hubs_are_explained(resplan_plans):
     out, _ = solve(get_plan(resplan_plans, 16448))
     # Strict rule: the living zone holds the living room and one bedroom; the kitchen and the
     # two other bedrooms open only onto the living room, so each is stranded in its own zone.
+    # Of the groupings with four hubs, the cheapest keeps bedroom_0 with the living room.
     extra = [d for d in out["diagnostics"] if d["code"] == "EXTRA_HUB"]
-    assert sorted(d["room"] for d in extra) == ["bedroom_0", "bedroom_2", "kitchen_0"]
+    assert sorted(d["room"] for d in extra) == ["bedroom_1", "bedroom_2", "kitchen_0"]
     assert all("joins only through living_0" in d["reason"] for d in extra)
