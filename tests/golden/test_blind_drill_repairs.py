@@ -18,6 +18,21 @@ def test_rooms_the_router_cannot_join_get_separate_hubs(resplan_plans):
     assert not any(d["code"] == "ROUTE_UNREACHABLE" for d in out["diagnostics"])
 
 
+@pytest.mark.parametrize("plan_id", [9313, 12736, 529])
+def test_fallback_routes_cannot_jump_thin_walls(resplan_plans, plan_id):
+    # Blind drill 2 (train split): legs on the zero-clearance fallback grid jumped walls
+    # thinner than half a grid step.
+    out, _ = solve(get_plan(resplan_plans, plan_id), DEFAULT)
+    assert out["validation"]["valid"] is True
+
+
+def test_a_zone_just_under_the_area_cap_passes_the_validator(resplan_plans):
+    # Blind drill 2: plan 15080's zone is 99.9997 m². The output's scale, rounded to 6 decimals,
+    # made the validator measure it just over 100 m².
+    out, _ = solve(get_plan(resplan_plans, 15080), DEFAULT)
+    assert out["validation"]["valid"] is True
+
+
 def test_a_leg_the_validator_rejects_is_rerouted(resplan_plans):
     # 13606: the router crossed into an unlabelled pocket where the validator sees no passage.
     out, _ = solve(get_plan(resplan_plans, 13606), DEFAULT)

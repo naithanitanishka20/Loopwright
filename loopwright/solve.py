@@ -227,7 +227,7 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
     out = {
         "schema": SCHEMA,
         "plan_id": plan.get("id"),
-        "frame": {"units": "input", "m_per_unit": round(s, 6)},
+        "frame": {"units": "input", "m_per_unit": s},
         "rules": {"max_area_m2": settings.max_area_m2, "max_nodes": settings.max_nodes,
                   "zone_link": settings.zone_link, "axis_aligned": True},
         "weights": {"bend_m": settings.bend_m, "crossing_m": settings.crossing_m, "overlap_factor": settings.overlap_factor},

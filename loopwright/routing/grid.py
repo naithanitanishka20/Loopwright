@@ -3,8 +3,10 @@
 Grid lines run every `spacing_m` plus through the exact x and y of every stop
 (hub or node), so legs start and end on their stops. A vertex is usable when it
 lies in the walkable region shrunk by the clearance; an edge when its midpoint
-does too. Walls are at least 0.4 m wide once both clearances are added, wider
-than any grid edge, so no edge can jump a wall. The search state is
+does too. On the normal grid, walls are at least 0.4 m wide once both
+clearances are added, wider than any grid edge, so no edge can jump a wall.
+That no longer holds on the finer zero-clearance grid used for narrow doors,
+so there every edge must lie wholly in the region. The search state is
 (vertex, heading), so each turn costs bend_m exactly.
 """
 import heapq
@@ -66,10 +68,26 @@ class GridRouter:
         my = (ya[:-1] + ya[1:]) / 2
         hmid = shapely.contains_xy(self.region, *np.meshgrid(mx, ya, indexing="ij"))
         vmid = shapely.contains_xy(self.region, *np.meshgrid(xa, my, indexing="ij"))
-        self.hok = (ok[:-1, :] & ok[1:, :] & hmid).tolist()
-        self.vok = (ok[:, :-1] & ok[:, 1:] & vmid).tolist()
+        hok = ok[:-1, :] & ok[1:, :] & hmid
+        vok = ok[:, :-1] & ok[:, 1:] & vmid
+        if 2 * settings.clearance_m < spacing_m:
+            # Walls can be thinner than half a grid step here, so an edge could jump one with
+            # both ends and its midpoint clear: check every candidate edge whole.
+            hok &= self._whole_edges(hok, xa, ya, horizontal=True)
+            vok &= self._whole_edges(vok, xa, ya, horizontal=False)
+        self.hok, self.vok = hok.tolist(), vok.tolist()
         self.bend = settings.bend_m / self.s
         self.cache = {}
+
+    def _whole_edges(self, candidates, xa, ya, horizontal):
+        """For each candidate edge, whether the whole segment lies in the region."""
+        out = np.zeros_like(candidates)
+        ii, jj = np.nonzero(candidates)
+        if len(ii):
+            start = np.stack([xa[ii], ya[jj]], axis=1)
+            end = np.stack([xa[ii + 1], ya[jj]], axis=1) if horizontal else np.stack([xa[ii], ya[jj + 1]], axis=1)
+            out[ii, jj] = shapely.covers(self.region, shapely.linestrings(np.stack([start, end], axis=1)))
+        return out
 
     def _search(self, src):
         if src in self.cache:

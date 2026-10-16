@@ -2,12 +2,16 @@
 import hashlib
 import json
 
+# Written at full precision: the validator rebuilds every area and length from the scale,
+# so rounding it moves them all (a 99.9 m² zone read back over the 100 m² cap).
+EXACT = ("m_per_unit",)
+
 
 def _round(obj, ndigits=3):
     if isinstance(obj, float):
         return round(obj, ndigits)
     if isinstance(obj, dict):
-        return {k: _round(v, ndigits) for k, v in obj.items()}
+        return {k: v if k in EXACT else _round(v, ndigits) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [_round(v, ndigits) for v in obj]
     return obj
