@@ -124,3 +124,16 @@ def test_a_design_validates_the_same_from_its_json_file(tmp_path):
     back = json.loads((tmp_path / "design.json").read_text(encoding="utf-8"))
     assert failed(plan, back) == set()
     assert back["frame"]["m_per_unit"] == s
+
+
+def test_a_plan_too_big_for_the_exact_search_is_refused_quickly_with_a_reason():
+    import time
+
+    from loopwright.io.sketch import build_plan
+
+    rooms = [{"type": "bedroom", "polygon": [[4 * i, 0], [4 * i + 4, 0], [4 * i + 4, 4], [4 * i, 4]]} for i in range(15)]
+    plan = build_plan(rooms, [(i, i + 1) for i in range(14)])
+    started = time.perf_counter()
+    with pytest.raises(ValueError, match="15 eligible rooms"):
+        solve(plan)
+    assert time.perf_counter() - started < 5

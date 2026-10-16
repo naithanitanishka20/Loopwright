@@ -19,6 +19,7 @@ from loopwright.validate.score import interactions, leg_length_and_bends, review
 
 
 MAX_REPAIRS = 3
+MAX_EXACT_ROOMS = 14  # the exact zone search walks every subset of the eligible rooms; ResPlan has at most 10
 AVOID_M = 0.3
 
 
@@ -112,6 +113,9 @@ def _hub_on_ring(router, zone, model, nodes_at, min_units):
 def solve(plan, settings=DEFAULT):
     t0 = time.perf_counter()
     model = build_model(plan, settings)
+    if len(model.eligible) > MAX_EXACT_ROOMS:
+        raise ValueError(f"this plan has {len(model.eligible)} eligible rooms; the exact search handles up to "
+                         f"{MAX_EXACT_ROOMS}, so split the plan or merge small rooms")
     s = model.m_per_unit
     base = list(model.diagnostics)
     nodes_at = place_nodes(model, settings)

@@ -32,11 +32,14 @@ from skimage.segmentation import expand_labels
 DOOR_M = 0.9
 MIN_ROOM_M2 = 1.0
 SMALL_ROOM_M2 = 4.0
+MAX_PIXELS = 40_000_000  # past this an image or rendered page needs gigabytes for the distance transform
 NOTE = "Room types are guesses (largest: living, under 4 m²: bathroom, others: bedroom); check them."
 
 
 def _grey(source):
     img = Image.open(io.BytesIO(source) if isinstance(source, (bytes, bytearray)) else source)
+    if img.size[0] * img.size[1] > MAX_PIXELS:
+        raise ValueError(f"image is {img.size[0]} x {img.size[1]} px; scale it down first")
     return np.asarray(img.convert("L"), dtype=np.uint8)
 
 
@@ -123,7 +126,11 @@ def read_pdf(source, *, page=0, dpi=150, scale=None, m_per_px=None, area_m2=None
     with pdfplumber.open(io.BytesIO(source) if isinstance(source, (bytes, bytearray)) else source) as pdf:
         if not 0 <= page < len(pdf.pages):
             raise ValueError(f"no page {page}; the PDF has {len(pdf.pages)}")
-        grey = np.asarray(pdf.pages[page].to_image(resolution=dpi).original.convert("L"), dtype=np.uint8)
+        sheet = pdf.pages[page]
+        pixels = round(sheet.width * dpi / 72) * round(sheet.height * dpi / 72)
+        if pixels > MAX_PIXELS:
+            raise ValueError(f"page {page} at {dpi} dpi is {pixels} px; give a lower dpi")
+        grey = np.asarray(sheet.to_image(resolution=dpi).original.convert("L"), dtype=np.uint8)
     if scale is not None and m_per_px is None:
         m_per_px = 0.0254 / dpi * scale
     return _sketch(grey, m_per_px, area_m2, door_m)

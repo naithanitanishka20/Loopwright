@@ -116,3 +116,35 @@ def test_an_image_with_no_rooms_is_refused():
     Image.new("L", (100, 100), 255).save(buf, format="PNG")
     with pytest.raises(ValueError, match="no rooms"):
         read_image(buf.getvalue(), m_per_px=M_PER_PX)
+
+
+def test_a_pdf_page_too_big_to_render_is_refused_before_rendering(monkeypatch):
+    import loopwright.io.image as image
+
+    buf = io.BytesIO()
+    Image.open(io.BytesIO(plan_image())).convert("RGB").save(buf, format="PDF", resolution=72)
+    monkeypatch.setattr(image, "MAX_PIXELS", 10_000)  # the page is 480 x 200 pt: 96,000 px at 72 dpi
+    with pytest.raises(ValueError, match="96000 px"):
+        read_pdf(buf.getvalue(), dpi=72, m_per_px=M_PER_PX)
+
+
+def two_bedrooms_off_a_living_room():
+    """A living room with a 0.75 m door into each of two bedrooms stacked on its right (40 px per metre)."""
+    img = Image.new("L", (560, 360), 255)
+    d = ImageDraw.Draw(img)
+    wall = lambda x0, y0, x1, y1: d.rectangle([x0, y0, x1 - 1, y1 - 1], fill=0)
+    wall(20, 20, 540, 28), wall(20, 332, 540, 340), wall(20, 20, 28, 340), wall(532, 20, 540, 340)
+    wall(300, 28, 308, 332), wall(308, 180, 532, 188)
+    d.rectangle([300, 90, 307, 119], fill=255)
+    d.rectangle([300, 240, 307, 269], fill=255)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+@pytest.mark.xfail(strict=True, reason="the walkable area leaves the upper bedroom in a piece of its own although its door "
+                                       "is found, so it gets a second hub (docs/phases/PHASE-9.md)")
+def test_two_bedrooms_off_a_living_room_share_its_hub():
+    sketch = read_image(two_bedrooms_off_a_living_room(), m_per_px=M_PER_PX)
+    assert sketch["doors"] == [[0, 1], [0, 2]]
+    assert solve_sketch(sketch) == (1, True)  # 93 m² and three nodes fit one zone

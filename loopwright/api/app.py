@@ -6,7 +6,6 @@ limited and parsed only as images, PDFs or DXF; ResPlan plans load only from the
 configured file, never from an upload.
 """
 import contextlib
-import io
 import json
 import pathlib
 import tempfile
@@ -29,7 +28,6 @@ from loopwright.output.viewer import viewer_data
 from loopwright.solve import solve
 
 IMAGE_TYPES = (".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp")
-MAX_IMAGE_PIXELS = 40_000_000
 MAX_ROOMS = 80
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
@@ -170,14 +168,9 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
 
                 return read_pdf(raw, page=page, dpi=min(max(dpi, 50), 300), scale=scale, m_per_px=m_per_px, area_m2=area_m2)
             if name.endswith(IMAGE_TYPES):
-                from PIL import Image
-
                 from loopwright.io.image import read_image
 
-                with Image.open(io.BytesIO(raw)) as im:
-                    if im.size[0] * im.size[1] > MAX_IMAGE_PIXELS:
-                        raise ValueError(f"image is {im.size[0]} x {im.size[1]} px; scale it down first")
-                return read_image(raw, m_per_px=m_per_px, area_m2=area_m2)
+                return read_image(raw, m_per_px=m_per_px, area_m2=area_m2)  # refuses an image too big to process
         raise HTTPException(400, "upload a PNG, JPEG, PDF or DXF file")
 
     return app
