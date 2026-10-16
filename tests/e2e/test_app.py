@@ -87,6 +87,14 @@ def click_on(page, selector):
     page.mouse.click(x, y)
 
 
+def longest_leg(page, ring):
+    """The number of the ring's longest leg: the easiest one to click, clear of nodes and labels."""
+    return page.evaluate("""(r) => { let best = null, len = -1;
+        for (const e of document.querySelectorAll(`[data-hit-ring="${r}"]`)) {
+            const l = e.getTotalLength(); if (l > len) { len = l; best = e.dataset.hitLeg; } }
+        return best; }""", ring)
+
+
 def test_only_the_chosen_source_pane_shows(page):
     visible = lambda: [p for p in ("id", "upload", "draw") if page.locator(f"#pane-{p}").is_visible()]
     assert visible() == ["draw"]
@@ -132,7 +140,7 @@ def test_cutting_a_leg_keeps_every_device_fed(page):
     draw_and_solve(page)
     wait_metric(page, "hubs", "1")
     page.click("#mode-cut")
-    click_on(page, '[data-hit-ring="H1"][data-hit-leg="2"]')
+    click_on(page, f'[data-hit-ring="H1"][data-hit-leg="{longest_leg(page, "H1")}"]')
     summary = page.locator("[data-cut-summary]")
     summary.wait_for(timeout=10000)
     assert "No device lost" in summary.inner_text()

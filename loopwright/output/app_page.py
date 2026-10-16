@@ -47,7 +47,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
 .leg { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 .leg-hit { fill: none; stroke: transparent; pointer-events: none; }
 .cutting .leg-hit { pointer-events: stroke; cursor: crosshair; }
-.nums, .editing .leg, .editing .node, .editing .hub { pointer-events: none; }
+.nums, .editing .leg, .editing .node, .editing .hub, .cutting .node, .cutting .hub { pointer-events: none; }
 .leg.hl { stroke: var(--hl) !important; filter: drop-shadow(0 0 2px var(--hl)); }
 .leg.cut { stroke: var(--bad) !important; stroke-dasharray: var(--u3) var(--u2); }
 .node { fill: var(--sheet); } .node.rev { stroke-dasharray: var(--u2) var(--u1); }

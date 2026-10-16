@@ -12,7 +12,7 @@ import math
 ZONE_LINKS = ("strict", "circulation", "through_rooms")
 PASS_THROUGH = ("circulation", "bathroom", "stair", "other_zones")
 INPUT_FORMATS = ("auto", "json", "resplan")
-NODE_RULES = ("pole",)
+NODE_RULES = ("near_doors", "pole")
 HUB_MOUNTS = ("free",)
 LIVING_PIECES = ("merge", "split")
 AXIS_FRAMES = ("drawing",)
@@ -57,7 +57,7 @@ class Settings:
     max_area_m2: float = 100.0
     # Q5-Q14
     input_format: str = "auto"
-    node_rule: str = "pole"
+    node_rule: str = "near_doors"
     # Q6, answered in the Eval-01 meeting: a node keeps this far from its room's walls
     node_wall_m: float = 0.5
     hub_mount: str = "free"

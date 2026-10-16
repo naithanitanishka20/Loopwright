@@ -18,7 +18,7 @@ def stacked_rooms():
 
 def test_cost_estimate_follows_rate_and_hub_price(browser, tmp_path):
     plan = stacked_rooms()
-    design, model = solve(plan, DEFAULT)
+    design, model = solve(plan, DEFAULT.with_overrides(node_rule="pole"))  # nodes at room centres: a 12 m ring
     page_file = tmp_path / "installer.html"
     page_file.write_text(render_installer(model, design, door_parts(plan)), encoding="utf-8")
     page = browser.new_page()
