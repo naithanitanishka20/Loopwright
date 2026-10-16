@@ -2,7 +2,11 @@ import json
 
 import pytest
 
+<<<<<<< HEAD
 from loopwright.validator import DesignValidationError, load_design, validate_design
+=======
+from loopwright.validate.structure import DesignValidationError, load_design, validate_design
+>>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4
 
 
 def test_validate_design_accepts_minimal_valid_document():
