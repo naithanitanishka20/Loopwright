@@ -24,6 +24,6 @@ RUN useradd --create-home --uid 10001 loopwright
 USER loopwright
 
 EXPOSE 8000
-# Railway sets PORT and RAILWAY_PUBLIC_DOMAIN, and checks health from healthcheck.railway.app
-CMD exec loopwright serve --site site --data data/hosted.pkl --host 0.0.0.0 --port "${PORT:-8000}" \
-    --allow-host "${RAILWAY_PUBLIC_DOMAIN:-localhost}" --allow-host healthcheck.railway.app
+# Railway sets PORT. A public service answers to any host name, so a domain added later works at once;
+# the host check is for the app on a machine of its own, where it guards against DNS rebinding.
+CMD exec loopwright serve --site site --data data/hosted.pkl --host 0.0.0.0 --port "${PORT:-8000}" --allow-host "*"
