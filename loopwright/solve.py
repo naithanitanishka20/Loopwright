@@ -170,7 +170,7 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
     for zi, zone in enumerate(zones, start=1):
         main_room = max(zone, key=lambda r: model.space(r).area_m2)
         hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s,
-                                                     settings.min_hub_node_m))
+                                                     settings.min_hub_node_m, [nodes_at[r] for r in zone]))
     stops = {**{rid: pos for rid, pos in nodes_at.items()}, **{h: pos for h, (_, pos) in hub_pos.items()}}
     # Bathrooms and stairs are blocked unless no route avoids them (Eval-01 meeting), and narrow
     # doors can close under the clearance, so each zone tries these routers in turn.

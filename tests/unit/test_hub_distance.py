@@ -50,5 +50,15 @@ def test_a_hub_on_its_node_fails_v16():
 @pytest.mark.dataset
 def test_plan_6733_no_longer_has_a_hub_on_a_node(resplan_plans):
     out, model = solve(get_plan(resplan_plans, 6733), DEFAULT)
-    assert closest_hub_node_m(out, model.m_per_unit) >= 0.5
+    assert closest_hub_node_m(out, model.m_per_unit) >= 0.5 - DEFAULT.tolerance_m  # positions are rounded
+    assert out["validation"]["valid"] is True
+
+
+@pytest.mark.dataset
+@pytest.mark.parametrize("plan_id", [15365, 10114])
+def test_a_fallback_hub_keeps_clear_of_every_node_of_its_zone(resplan_plans, plan_id):
+    # With nodes near doors, a node across the door from the main room's node ended up under
+    # 0.5 m from a hub placed off the ring.
+    out, model = solve(get_plan(resplan_plans, plan_id), DEFAULT)
+    assert closest_hub_node_m(out, model.m_per_unit) >= 0.5 - DEFAULT.tolerance_m  # positions are rounded
     assert out["validation"]["valid"] is True
