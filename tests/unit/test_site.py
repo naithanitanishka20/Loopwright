@@ -1,14 +1,15 @@
-"""The product site's generated parts: dark plan drawings, numbers from bench/, data.js and assets."""
+"""The product site's generated parts: scale-model drawings, numbers from bench/, settings, data.js and assets."""
 import json
-import re
+from dataclasses import asdict
 
 import pytest
 
+import loopwright
 from loopwright.charts import extra_hubs_chart, runtime_chart
 from loopwright.config import DEFAULT
 from loopwright.io.sketch import build_plan
 from loopwright.results import summarize
-from loopwright.site import RINGS, WALL, build_site, label_spot, plan_svg, site_numbers
+from loopwright.site import build_site, site_numbers
 from loopwright.solve import solve
 
 
@@ -26,62 +27,22 @@ def row(i, status="valid", hubs=2, lb=2, greedy=3, runtime=0.2):
             "bends": 8, "crossings": 0, "overlap_m": 0.0, "J": 22.4, "runtime_s": runtime}
 
 
-def test_a_plan_drawing_tags_every_leg_node_and_hub_for_the_animation():
-    out, model = solve(FLAT)
-    svg = plan_svg(model, out)
-    legs = re.findall(r'<path class="leg"[^>]*data-ring="(H\d+)"[^>]*data-step="(\d+)"', svg)
-    assert len(legs) == sum(len(r["legs"]) for r in out["rings"])
-    assert len(re.findall(r'class="node"', svg)) == len(out["nodes"])
-    assert len(re.findall(r'class="hub"', svg)) == len(out["hubs"])
-    assert svg.startswith("<svg") and 'viewBox="' in svg
+def read_data(site):
+    text = (site / "data.js").read_text(encoding="utf-8")
+    assert text.startswith("window.LOOPWRIGHT = ")
+    return json.loads(text[len("window.LOOPWRIGHT = "):].rstrip().rstrip(";"))
 
 
-def test_a_plan_drawing_is_self_contained():
-    out, model = solve(FLAT)
-    svg = plan_svg(model, out)
-    assert "<script" not in svg and "href" not in svg
-    assert re.findall(r"https?://[^\"]+", svg) == ["http://www.w3.org/2000/svg"]
-
-
-def luminance(hex_colour):
-    def channel(c):
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-    r, g, b = (int(hex_colour[i:i + 2], 16) for i in (1, 3, 5))
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-
-
-def test_walls_stay_quieter_than_every_cable_colour():
-    assert luminance(WALL) < min(luminance(c) for c in RINGS)
-
-
-def test_markers_are_drawn_about_their_own_centre_so_the_page_can_scale_them():
-    out, model = solve(FLAT)
-    svg = plan_svg(model, out)
-    nodes = re.findall(r'<g class="node"[^>]*transform="translate\(-?[\d.]+ -?[\d.]+\)"><g class="mark"><circle r="7" '
-                       r'fill="currentColor"', svg)
-    hubs = re.findall(r'<g class="hub"[^>]*transform="translate\(-?[\d.]+ -?[\d.]+\)"><g class="mark"><rect ', svg)
-    assert (len(nodes), len(hubs)) == (len(out["nodes"]), len(out["hubs"]))
-
-
-def test_hub_labels_use_the_site_font_and_keep_a_halo_over_cable():
-    out, model = solve(FLAT)
-    svg = plan_svg(model, out)
-    labels = re.findall(r'<text [^>]*>H\d+</text>', svg)
-    assert len(labels) == len(out["hubs"])
-    assert all('font-family="Outfit' in s and 'paint-order="stroke"' in s for s in labels)
-
-
-def test_a_hub_label_moves_off_a_node_on_its_right():
-    free = label_spot((100, 100), nodes=[], legs=[])
-    blocked = label_spot((100, 100), nodes=[(120, 100)], legs=[])
-    assert free[2] == "start" and free[0] > 100
-    assert blocked[2] != "start"
-
-
-def test_a_hub_label_prefers_a_side_without_cable():
-    spot = label_spot((100, 100), nodes=[], legs=[[(100, 100), (160, 100)]])
-    assert spot[2] != "start"
+@pytest.fixture
+def built(tmp_path):
+    bench = tmp_path / "bench"
+    bench.mkdir()
+    (bench / "test-split.jsonl").write_text(json.dumps(row(1)), encoding="utf-8")
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "figure.css").write_text(".iso-svg{--paper:#000}", encoding="utf-8")
+    data = build_site(site, {"hero": (FLAT, DEFAULT, {"live": True}), "still": (FLAT, DEFAULT, {"coloured": True})}, bench)
+    return site, data
 
 
 def test_site_numbers_come_from_the_batch_records(tmp_path):
@@ -97,33 +58,37 @@ def test_site_numbers_come_from_the_batch_records(tmp_path):
     assert (n["p50_s"], n["p95_s"]) == (0.3, 0.4)
 
 
-def test_build_site_writes_the_data_file_and_the_assets(tmp_path):
-    bench = tmp_path / "bench"
-    bench.mkdir()
-    (bench / "test-split.jsonl").write_text(json.dumps(row(1)), encoding="utf-8")
-    (bench / "latency-test.jsonl").write_text(json.dumps(row(1)), encoding="utf-8")
-    site = tmp_path / "site"
-    build_site(site, {"hero": (FLAT, DEFAULT)}, bench)
-    text = (site / "data.js").read_text(encoding="utf-8")
-    assert text.startswith("window.LOOPWRIGHT = ")
-    data = json.loads(text[len("window.LOOPWRIGHT = "):].rstrip().rstrip(";"))
+def test_build_site_writes_the_data_file_and_the_drawings(built):
+    site, data = built
+    assert read_data(site) == data
     assert data["numbers"]["valid"] == 1
-    assert data["drawings"]["hero"]["svg"].startswith("<svg") and data["drawings"]["hero"]["hubs"] == 1
-    assert (site / "assets" / "hero.svg").exists()
+    out, _ = solve(FLAT)
+    hero = data["drawings"]["hero"]
+    assert hero["svg"].startswith("<svg") and hero["hubs"] == len(out["hubs"]) and hero["greedy"] == out["metrics"]["hubs_greedy"]
+    assert (site / "assets" / "hero.svg").exists() and (site / "assets" / "still.svg").exists()
     assert (site / "assets" / "extra-hubs.svg").exists() and (site / "assets" / "runtime.svg").exists()
 
 
-def test_the_data_file_carries_the_charts_inline_the_version_and_the_greedy_count(tmp_path):
-    import loopwright
+def test_drawings_on_disk_carry_their_styles_and_the_inline_copies_do_not(built):
+    site, data = built
+    on_disk = (site / "assets" / "hero.svg").read_text(encoding="utf-8")
+    assert "<style>.iso-svg{--paper:#000}</style>" in on_disk
+    assert "<style>" not in data["drawings"]["hero"]["svg"]
 
-    bench = tmp_path / "bench"
-    bench.mkdir()
-    (bench / "test-split.jsonl").write_text(json.dumps(row(1)), encoding="utf-8")
-    data = build_site(tmp_path / "site", {"hero": (FLAT, DEFAULT)}, bench)
+
+def test_only_the_live_drawing_carries_its_rings_for_the_signal(built):
+    _, data = built
+    rings = data["drawings"]["hero"]["rings"]
+    assert rings and all(r["length"] > 0 and r["stops"] for r in rings)
+    assert "rings" not in data["drawings"]["still"]
+    assert 'class="iso-svg model coloured"' in data["drawings"]["still"]["svg"]
+
+
+def test_the_data_file_carries_the_charts_the_version_and_the_settings(built):
+    _, data = built
     assert data["charts"]["extra_hubs"].startswith("<svg") and data["charts"]["runtime"].startswith("<svg")
     assert data["version"] == loopwright.__version__
-    out, _ = solve(FLAT)
-    assert data["drawings"]["hero"]["greedy"] == out["metrics"]["hubs_greedy"]
+    assert data["settings"] == json.loads(json.dumps(asdict(DEFAULT)))
 
 
 def test_charts_have_a_dark_theme_for_the_site():
@@ -142,8 +107,12 @@ def test_the_site_command_builds_every_drawing_from_real_plans(tmp_path):
     bench = tmp_path / "bench"
     bench.mkdir()
     (bench / "test-split.jsonl").write_text(json.dumps(row(1)), encoding="utf-8")
-    assert main(["site", "--out", str(tmp_path / "site"), "--bench", str(bench), "--data", str(DATA)]) == 0
-    data = json.loads((tmp_path / "site" / "data.js").read_text(encoding="utf-8")[len("window.LOOPWRIGHT = "):].rstrip().rstrip(";"))
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "figure.css").write_text("", encoding="utf-8")
+    assert main(["site", "--out", str(site), "--bench", str(bench), "--data", str(DATA)]) == 0
+    data = read_data(site)
     assert set(data["drawings"]) == {"hero", "rule_strict", "rule_through", "before", "after"}
     assert data["drawings"]["rule_strict"]["hubs"] > data["drawings"]["rule_through"]["hubs"]
     assert data["drawings"]["after"]["J"] < data["drawings"]["before"]["J"]
+    assert "rings" in data["drawings"]["hero"]

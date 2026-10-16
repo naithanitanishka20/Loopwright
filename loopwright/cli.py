@@ -170,12 +170,13 @@ def cmd_site(args):
 
     plans = load_plans(args.data)
     hero, rule, compare = (get_plan(plans, pid) for pid in (2916, 16448, 11282))
+    coloured = {"coloured": True}
     drawings = {
-        "hero": (hero, DEFAULT),
-        "rule_strict": (rule, DEFAULT),
-        "rule_through": (rule, DEFAULT.with_overrides(zone_link="through_rooms")),
-        "before": (compare, DEFAULT.with_overrides(node_rule="pole", separate_lanes=False)),
-        "after": (compare, DEFAULT),
+        "hero": (hero, DEFAULT, {"live": True}),
+        "rule_strict": (rule, DEFAULT, coloured),
+        "rule_through": (rule, DEFAULT.with_overrides(zone_link="through_rooms"), coloured),
+        "before": (compare, DEFAULT.with_overrides(node_rule="pole", separate_lanes=False), coloured),
+        "after": (compare, DEFAULT, coloured),
     }
     n = build_site(args.out, drawings, args.bench)["numbers"]
     print(f"wrote {args.out}/data.js and {args.out}/assets: {n['valid']:,} of {n['feasible']:,} feasible plans valid, "
