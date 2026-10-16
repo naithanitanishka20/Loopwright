@@ -52,6 +52,10 @@ The server listens on 127.0.0.1 only and refuses requests addressed to any other
 - `DOORS`: a line across the shared edge wherever two rooms connect.
 - Units from the drawing's `$INSUNITS`.
 
+## Product site
+
+`site/` is a static page about Loopwright: open `site/index.html` straight from disk, or publish the folder with GitHub Pages. Every drawing on it is solver output and every figure comes from the batch records in `bench/`; `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. `index.html`, `styles.css` and `main.js` are written by hand, and `tests/unit/test_site_page.py` fails if the page's figures drift from `site/data.js`.
+
 ## Command line
 
 ```bash
@@ -61,8 +65,9 @@ loopwright validate out/14433.json --id 14433        # structure, then the indep
 loopwright validate out/14433.json                   # structure only: types, finite numbers, schema keys
 loopwright index out/                                # out/index.html listing every solved plan
 loopwright batch --split test --workers 4            # a ResPlan split, failures grouped by cause
-loopwright results bench/test-split.jsonl bench/val-split.jsonl   # bench/results.md
-loopwright charts bench/test-split.jsonl --runtime bench/latency-test.jsonl   # docs/figures/*.svg
+loopwright results bench/test-split.jsonl bench/val-split.jsonl bench/augmented-split.jsonl bench/train-split.jsonl   # bench/results.md
+loopwright charts bench/test-split.jsonl bench/val-split.jsonl bench/augmented-split.jsonl bench/train-split.jsonl --runtime bench/latency-test.jsonl   # docs/figures/*.svg
+loopwright site                                      # the product site's drawings, charts and figures (site/)
 loopwright config                                    # the default settings as JSON
 ```
 
@@ -82,6 +87,7 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/output/` | JSON (schema `loopwright/2`), SVG overlay, viewer, installer pack, cut analysis, explanations, app page |
 | `loopwright/api/` | The local server behind the app |
 | `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |
+| `loopwright/site.py`, `site/` | The product site: generated drawings, charts and figures, and the hand-written page |
 | `bench/` | Batch records (`.jsonl`) and reports for every ResPlan split, and `results.md` |
 | `docs/` | Assumptions, schema, testing playbook, demo script, phase notes, figures |
 
