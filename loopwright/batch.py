@@ -1,12 +1,15 @@
 """Run many plans and group failures by cause."""
 import collections
 import json
+import math
 import random
 import time
 from multiprocessing import Pool
 
 from loopwright.config import DEFAULT
 from loopwright.solve import solve
+
+MAX_WORKERS = 64
 
 
 def run_one(job):
@@ -37,6 +40,10 @@ def run_one(job):
 
 
 def run_batch(plans, settings=DEFAULT, workers=4):
+    if type(workers) is not int or workers < 1:
+        raise ValueError("workers must be a positive integer")
+    if workers > MAX_WORKERS:
+        raise ValueError(f"workers must be at most {MAX_WORKERS}")
     jobs = [(p, settings) for p in plans]
     if workers <= 1:
         return [run_one(j) for j in jobs]
@@ -45,13 +52,21 @@ def run_batch(plans, settings=DEFAULT, workers=4):
 
 
 def sample(plans, n, seed):
+    if type(n) is not int or n < 1:
+        raise ValueError("sample size must be a positive integer")
     rng = random.Random(seed)
     return rng.sample(plans, min(n, len(plans)))
 
 
 def p50_p95(times):
     """Runtime percentiles as every Loopwright report quotes them."""
-    t = sorted(times)
+    t = list(times)
+    if not t:
+        raise ValueError("at least one runtime is required")
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0
+           for value in t):
+        raise ValueError("runtimes must be finite non-negative numbers")
+    t.sort()
     return t[len(t) // 2], t[int(len(t) * 0.95) - 1]
 
 

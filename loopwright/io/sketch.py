@@ -6,6 +6,8 @@ centred on that edge, half in each room. Every connected pair gets a door in
 the middle of the shared edge; like ResPlan's doors, it is an opening in the
 wall, which the solver and validator subtract from the wall layer.
 """
+import math
+
 from shapely.geometry import LineString, MultiPolygon, Polygon
 from shapely.ops import unary_union
 
@@ -29,14 +31,24 @@ def _door(edge, wall_m):
 
 def build_plan(rooms, doors, *, wall_m=0.1, plan_id="sketch"):
     """rooms: [{"type": ..., "polygon": [[x, y], ...]}] in metres; doors: [(i, j), ...] room indices."""
+    if isinstance(wall_m, bool) or not isinstance(wall_m, (int, float)) or not math.isfinite(wall_m) or wall_m <= 0:
+        raise ValueError("wall_m must be a finite positive number")
     outlines = []
     for k, room in enumerate(rooms):
+        if not isinstance(room, dict):
+            raise ValueError(f"room {k} must be an object")
         if room.get("type") not in ROOM_TYPES:
             raise ValueError(f"room {k}: unknown room type {room.get('type')!r}; use one of {ROOM_TYPES}")
         outlines.append(valid(Polygon(room["polygon"])))
 
     cuts = []
-    for i, j in doors:
+    for door in doors:
+        if (not isinstance(door, (list, tuple)) or len(door) != 2
+                or any(type(index) is not int for index in door)):
+            raise ValueError("door room indices must be two integers")
+        i, j = door
+        if not 0 <= i < len(outlines) or not 0 <= j < len(outlines) or i == j:
+            raise ValueError("door room indices must name two different rooms")
         edge = _shared_edge(outlines[i], outlines[j])
         if edge is None or edge.length <= wall_m:
             raise ValueError(f"rooms {i} and {j} share no wall to put a door in")

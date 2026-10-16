@@ -67,6 +67,13 @@ def test_runtime_chart_marks_p50_and_p95():
     assert 'class="cdf"' in svg
 
 
+def test_runtime_chart_rejects_empty_times():
+    import pytest
+
+    with pytest.raises(ValueError, match="at least one runtime"):
+        runtime_chart([])
+
+
 def test_charts_command_writes_both_figures(tmp_path):
     runs = tmp_path / "test-split.jsonl"
     runs.write_text("\n".join(json.dumps(r) for r in ROWS), encoding="utf-8")

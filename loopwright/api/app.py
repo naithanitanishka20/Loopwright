@@ -8,6 +8,7 @@ configured file, never from an upload.
 import contextlib
 import io
 import json
+import math
 import pathlib
 import tempfile
 
@@ -67,6 +68,9 @@ def _bad_input(*kinds):
 
 
 def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", "localhost")):
+    if (isinstance(max_upload_mb, bool) or not isinstance(max_upload_mb, (int, float))
+            or not math.isfinite(max_upload_mb) or max_upload_mb <= 0):
+        raise ValueError("max_upload_mb must be a finite positive number")
     app = FastAPI(title="Loopwright", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     data = pathlib.Path(data_path) if data_path else None
@@ -94,10 +98,16 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
             rooms = src.sketch.get("rooms")
             if not isinstance(rooms, list) or not 1 <= len(rooms) <= MAX_ROOMS:
                 raise ValueError(f"a sketch needs 1 to {MAX_ROOMS} rooms")
-            doors = [tuple(int(i) for i in d) for d in src.sketch.get("doors", [])]
-            if any(not 0 <= i < len(rooms) for d in doors for i in d):
-                raise ValueError("a door names a room the sketch doesn't have")
-            plan = build_plan(rooms, doors, wall_m=float(src.sketch.get("wall_m", 0.1)))
+            doors = src.sketch.get("doors", [])
+            if not isinstance(doors, list):
+                raise ValueError("doors must be a list of room-index pairs")
+            for door in doors:
+                if (not isinstance(door, (list, tuple)) or len(door) != 2
+                        or any(type(index) is not int for index in door)):
+                    raise ValueError("door room indices must be two integers")
+                if any(not 0 <= index < len(rooms) for index in door):
+                    raise ValueError("a door names a room the sketch doesn't have")
+            plan = build_plan(rooms, doors, wall_m=src.sketch.get("wall_m", 0.1))
         elif src.plan_id is not None:
             plan = resplan().get(str(src.plan_id))
             if plan is None:

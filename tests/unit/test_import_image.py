@@ -1,5 +1,6 @@
 """Assisted import from a plan image or PDF, on synthetic drawings (black walls on white, 8 px thick)."""
 import io
+import math
 
 import pytest
 
@@ -116,3 +117,15 @@ def test_an_image_with_no_rooms_is_refused():
     Image.new("L", (100, 100), 255).save(buf, format="PNG")
     with pytest.raises(ValueError, match="no rooms"):
         read_image(buf.getvalue(), m_per_px=M_PER_PX)
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"m_per_px": 0},
+    {"m_per_px": math.nan},
+    {"m_per_px": math.inf},
+    {"area_m2": -1},
+    {"door_m": True},
+])
+def test_invalid_import_scales_are_refused(kwargs):
+    with pytest.raises(ValueError, match="must be a finite positive number"):
+        read_image(plan_image(), **kwargs)
