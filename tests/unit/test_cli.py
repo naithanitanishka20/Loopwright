@@ -1,5 +1,8 @@
 import json
 
+import pytest
+
+from loopwright.batch import run_batch
 from loopwright.cli import main
 
 
@@ -43,6 +46,53 @@ def test_batch_command_samples_runs_and_writes_both_reports(tmp_path, monkeypatc
     assert report.read_text(encoding="utf-8") == "# Batch report\n"
     assert json.loads(report.with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()[0])["id"] == 1
     assert "# Batch report" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("workers", [0, -1, True, 1.5])
+def test_run_batch_rejects_invalid_worker_counts(workers):
+    with pytest.raises(ValueError, match="workers must be a positive integer"):
+        run_batch([], workers=workers)
+
+
+def test_batch_command_rejects_nonpositive_worker_count_before_loading_data(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        main(["batch", "--workers", "0", "--data", str(tmp_path / "missing.zip")])
+
+    assert exc.value.code == 2
+    assert "argument --workers: must be a positive integer" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("command", "option", "value"),
+    [
+        ("batch", "--sample", "0"),
+        ("solve", "--max-nodes", "0"),
+        ("solve", "--max-area", "nan"),
+    ],
+)
+def test_commands_reject_invalid_numeric_options_before_loading_data(tmp_path, capsys, command, option, value):
+    args = [command, "--data", str(tmp_path / "missing.zip"), option, value]
+    if command == "solve":
+        args.extend(["--id", "1"])
+
+    with pytest.raises(SystemExit) as exc:
+        main(args)
+
+    assert exc.value.code == 2
+    assert f"argument {option}:" in capsys.readouterr().err
+
+
+def test_index_skips_malformed_and_incomplete_designs(tmp_path, capsys):
+    (tmp_path / "broken.json").write_text("{", encoding="utf-8")
+    (tmp_path / "incomplete.json").write_text(
+        json.dumps({"schema": "loopwright/2", "plan_id": "incomplete"}), encoding="utf-8"
+    )
+    (tmp_path / "incomplete.html").write_text("placeholder", encoding="utf-8")
+
+    assert main(["index", str(tmp_path)]) == 0
+
+    assert "0 plans" in (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert "skipped broken.json" in capsys.readouterr().err
 
 
 def test_validate_command_rejects_nan_in_json(tmp_path, capsys):

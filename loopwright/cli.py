@@ -1,6 +1,7 @@
 """Command line: loopwright solve | validate | index | batch | config."""
 import argparse
 import json
+import math
 import os
 import pathlib
 import sys
@@ -8,6 +9,26 @@ import sys
 from loopwright.config import DEFAULT, ZONE_LINKS
 
 DEFAULT_DATA = os.environ.get("LOOPWRIGHT_DATA", "data/ResPlan.zip")
+
+
+def _positive_int(value):
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
+
+
+def _positive_float(value):
+    try:
+        number = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a finite number greater than zero") from exc
+    if not math.isfinite(number) or number <= 0:
+        raise argparse.ArgumentTypeError("must be a finite number greater than zero")
+    return number
 
 
 def _load_plan(args):
@@ -60,14 +81,18 @@ def cmd_solve(args):
 
 def cmd_index(args):
     from loopwright.output.viewer import render_index
+    from loopwright.validate.structure import DesignValidationError, load_design
 
     folder = pathlib.Path(args.folder)
     designs = []
     for path in sorted(folder.glob("*.json")):
-        with open(path, encoding="utf-8") as f:
-            d = json.load(f)
-        if d.get("schema") == "loopwright/2" and (folder / f"{_safe_stem(d['plan_id'])}.html").exists():
-            designs.append(d)
+        try:
+            design = load_design(path)
+        except DesignValidationError as exc:
+            print(f"skipped {path.name}: {exc.issues[0]}", file=sys.stderr)
+            continue
+        if (folder / f"{_safe_stem(design['plan_id'])}.html").exists():
+            designs.append(design)
     (folder / "index.html").write_text(render_index(designs), encoding="utf-8")
     print(f"wrote {folder / 'index.html'} listing {len(designs)} plans")
     return 0
@@ -140,13 +165,13 @@ def main(argv=None):
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
     b.add_argument("--split-file", help="path to split.json (default: next to --data)")
-    b.add_argument("--sample", type=int, help="random sample size (default: all plans)")
+    b.add_argument("--sample", type=_positive_int, help="random sample size (default: all plans)")
     b.add_argument("--seed", type=int, default=7)
-    b.add_argument("--workers", type=int, default=4)
+    b.add_argument("--workers", type=_positive_int, default=4)
     b.add_argument("--report", default="bench/report.md")
     b.add_argument("--zone-link", choices=ZONE_LINKS)
-    b.add_argument("--max-nodes", type=int)
-    b.add_argument("--max-area", type=float)
+    b.add_argument("--max-nodes", type=_positive_int)
+    b.add_argument("--max-area", type=_positive_float)
     for name in ("solve", "validate"):
         q = sub.add_parser(name)
         if name == "validate":
@@ -155,8 +180,8 @@ def main(argv=None):
         q.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip or .pkl (default: %(default)s)")
         q.add_argument("--json", help="an organisers' plan JSON instead of a ResPlan id")
         q.add_argument("--zone-link", choices=ZONE_LINKS, help="assumptions Q1")
-        q.add_argument("--max-nodes", type=int, help="assumptions Q4")
-        q.add_argument("--max-area", type=float, help="area cap in m²")
+        q.add_argument("--max-nodes", type=_positive_int, help="assumptions Q4")
+        q.add_argument("--max-area", type=_positive_float, help="area cap in m²")
         if name == "solve":
             q.add_argument("--out", default="out", help="output folder (default: %(default)s)")
     args = p.parse_args(argv)

@@ -57,6 +57,15 @@ def scale(plan, inner):
     return math.sqrt(area / inner.area)
 
 
+def _wall_depth(plan, m_per_unit):
+    value = plan.get("wall_depth")
+    if value is None:
+        return 0.2 / m_per_unit
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        raise ValueError("plan 'wall_depth' must be a finite number greater than zero")
+    return float(value)
+
+
 def build_model(plan, settings=DEFAULT):
     inner = valid(plan.get("inner"))
     if inner is None or inner.is_empty:
@@ -89,7 +98,7 @@ def build_model(plan, settings=DEFAULT):
         diagnostics.append({"code": "NO_ELIGIBLE_ROOM"})
 
     layers = {k: valid(plan.get(k)) for k in LAYERS}
-    wall_depth = float(plan.get("wall_depth") or 0) or 0.2 / s
+    wall_depth = _wall_depth(plan, s)
     # Some ResPlan plans have an `inner` outline that leaves out parts of rooms.
     # Rooms are inside the building by definition, so widen the outline to cover
     # every room and door (grown by half a wall to close the passages between

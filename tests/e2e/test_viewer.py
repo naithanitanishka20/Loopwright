@@ -59,6 +59,19 @@ def test_plan_text_cannot_inject_script(browser, tmp_path):
     assert "</script>" in page.locator("#title").inner_text()
 
 
+def test_index_metrics_cannot_inject_script(browser, tmp_path):
+    out, _ = solve(two_room_plan())
+    payload = "<script>window.pwned = 1</script>"
+    out["metrics"]["hubs"] = payload
+    index_file = tmp_path / "index.html"
+    index_file.write_text(render_index([out]), encoding="utf-8")
+    page = browser.new_page()
+    page.goto(index_file.as_uri())
+    assert page.evaluate("window.pwned") is None
+    assert page.locator("script").count() == 0
+    assert payload in page.locator("tbody").inner_text()
+
+
 def test_index_links_to_each_plan(browser, tmp_path):
     out, _ = solve(two_room_plan())
     index_file = tmp_path / "index.html"

@@ -15,6 +15,7 @@ ALLOWED_GLOBALS = frozenset({
     ("numpy", "dtype"),
 })
 KEY_ALIASES = {"balacony": "balcony"}
+MAX_PICKLE_BYTES = 512 * 1024 * 1024
 
 
 class UnsafePickleError(pickle.UnpicklingError):
@@ -32,20 +33,33 @@ def safe_loads(data: bytes):
     return _RestrictedUnpickler(io.BytesIO(data)).load()
 
 
+def _check_pickle_size(size):
+    if size > MAX_PICKLE_BYTES:
+        raise ValueError(f"pickle exceeds the maximum allowed size ({MAX_PICKLE_BYTES} bytes)")
+
+
+def _normalize_plans(plans):
+    if not isinstance(plans, list) or any(not isinstance(plan, dict) for plan in plans):
+        raise ValueError("ResPlan pickle must contain a list of plan mappings")
+    return [normalize_keys(plan) for plan in plans]
+
+
 def load_plans(path):
     """Load every plan from ResPlan.zip (containing one .pkl) or a bare .pkl."""
     path = pathlib.Path(path)
     if path.suffix.lower() == ".zip":
         with zipfile.ZipFile(path) as z:
-            name = next((i.filename for i in z.infolist() if i.filename.endswith(".pkl")), None)
-            if name is None:
+            member = next((i for i in z.infolist() if i.filename.endswith(".pkl")), None)
+            if member is None:
                 raise FileNotFoundError(f"no .pkl inside {path}")
-            with z.open(name) as f:
+            _check_pickle_size(member.file_size)
+            with z.open(member) as f:
                 plans = _RestrictedUnpickler(io.BufferedReader(f, 1 << 20)).load()
     else:
+        _check_pickle_size(path.stat().st_size)
         with open(path, "rb") as f:
             plans = _RestrictedUnpickler(f).load()
-    return [normalize_keys(p) for p in plans]
+    return _normalize_plans(plans)
 
 
 def normalize_keys(plan):

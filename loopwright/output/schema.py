@@ -3,6 +3,13 @@ import hashlib
 import json
 
 
+WINDOWS_DEVICE_NAMES = frozenset((
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+))
+
+
 def _round(obj, ndigits=3):
     if isinstance(obj, float):
         return round(obj, ndigits)
@@ -25,9 +32,17 @@ def canonical_json(obj, exclude=("runtime_s",)):
 
 
 def safe_stem(plan_id):
-    """A file name from a plan id that can't leave the output folder."""
-    stem = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in str(plan_id))[:64]
-    return stem or "plan"
+    """A stable filename stem that stays in the output folder without collisions."""
+    text = str(plan_id)
+    stem = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in text)[:64]
+    changed = stem != text
+    if not stem:
+        stem = "plan"
+        changed = True
+    if changed or stem.casefold() != stem or stem.upper() in WINDOWS_DEVICE_NAMES:
+        suffix = hashlib.sha256(text.encode("utf-8")).hexdigest()[:10]
+        stem = f"{stem[:53]}-{suffix}"
+    return stem
 
 
 def digest(obj):

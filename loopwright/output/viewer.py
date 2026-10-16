@@ -44,15 +44,17 @@ def render_viewer(model, out):
 
 
 def render_index(designs):
-    """designs: list of loopwright/2 dicts already written next to their <id>.html."""
+    """Render the landing page for written design documents."""
     rows = []
-    for d in sorted(designs, key=lambda d: str(d["plan_id"])):
-        m = d["metrics"]
-        pid = escape(str(d["plan_id"]))
-        href = escape(safe_stem(d["plan_id"]), quote=True)
-        state = "valid" if d["validation"]["valid"] else "invalid"
-        rows.append(f'<tr><td><a href="{href}.html">{pid}</a></td><td>{m["hubs"]}</td><td>{m["hub_lower_bound"]}</td>'
-                    f'<td>{m["length_m"]}</td><td>{m["bends"]}</td><td>{m["J"]}</td><td class="{state}">{state}</td></tr>')
+    for design in sorted(designs, key=lambda design: str(design["plan_id"])):
+        metrics = design["metrics"]
+        plan_id = escape(str(design["plan_id"]))
+        href = escape(safe_stem(design["plan_id"]), quote=True)
+        state = "valid" if design["validation"]["valid"] else "invalid"
+        hubs, bound, length, bends, cost = (escape(str(metrics[key]), quote=True)
+                                            for key in ("hubs", "hub_lower_bound", "length_m", "bends", "J"))
+        rows.append(f'<tr><td><a href="{href}.html">{plan_id}</a></td><td>{hubs}</td><td>{bound}</td>'
+                    f'<td>{length}</td><td>{bends}</td><td>{cost}</td><td class="{state}">{state}</td></tr>')
     return INDEX.replace("__ROWS__", "\n".join(rows)).replace("__COUNT__", str(len(rows)))
 
 

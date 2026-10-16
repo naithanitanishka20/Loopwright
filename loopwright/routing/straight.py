@@ -1,8 +1,4 @@
-"""Phase 2 stand-in router: one axis-aligned L per leg.
-
-It ignores walls, so legs can fail V10 to V13. Phase 3 replaces it with the
-grid router; the output contract stays.
-"""
+"""Axis-aligned L-leg fallback router."""
 import math
 
 
@@ -30,7 +26,7 @@ def l_leg(a, b):
 
 
 def nearest_order(start, points):
-    """Visit points greedily by Manhattan distance from start (Phase 2 only)."""
+    """Visit points greedily by Manhattan distance from start."""
     _point(start)
     for point in points.values():
         _point(point)

@@ -1,6 +1,4 @@
-"""Rules V00-V14 checked against the raw plan. V05 and V13 need the door graph
-and are reported as not checked until Phase 3.
-"""
+"""Independent V00-V14 checks against a raw plan."""
 import math
 
 import shapely

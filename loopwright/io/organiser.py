@@ -85,7 +85,7 @@ def from_dict(raw: dict) -> dict:
             plan[ALIASES[k]] = parse_geometry(value)
     if plan.get("inner") is None:
         raise ValueError("organiser JSON has no building boundary ('inner' or 'boundary')")
-    for name in ("area", "m_per_unit"):
+    for name in ("area", "m_per_unit", "wall_depth"):
         if name in plan:
             value = plan[name]
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:

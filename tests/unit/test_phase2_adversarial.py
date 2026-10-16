@@ -44,6 +44,25 @@ def test_organiser_accepts_negative_coordinates():
     assert geometry.bounds == (-2.0, -1.0, 0.0, 1.0)
 
 
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf, 0.0, -1.0, True])
+def test_organiser_rejects_invalid_wall_depth(value):
+    with pytest.raises(ValueError, match="wall_depth"):
+        from_dict({
+            "area": 1.0,
+            "wall_depth": value,
+            "inner": "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))",
+        })
+
+
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf, 0.0, -1.0, True])
+def test_solver_rejects_invalid_wall_depth(value):
+    plan = two_room_plan()
+    plan["wall_depth"] = value
+
+    with pytest.raises(ValueError, match="wall_depth"):
+        solve(plan)
+
+
 @pytest.mark.parametrize("area", [[math.nan], [math.inf], [-1.0], [True]])
 def test_feasible_zones_reject_invalid_areas(area):
     with pytest.raises(ValueError, match="areas"):

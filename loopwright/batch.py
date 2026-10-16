@@ -37,6 +37,8 @@ def run_one(job):
 
 
 def run_batch(plans, settings=DEFAULT, workers=4):
+    if type(workers) is not int or workers < 1:
+        raise ValueError("workers must be a positive integer")
     jobs = [(p, settings) for p in plans]
     if workers <= 1:
         return [run_one(j) for j in jobs]
