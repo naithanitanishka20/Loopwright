@@ -25,6 +25,7 @@ loopwright validate out/14433.json --id 14433   # structure, then independent ch
 loopwright validate out/14433.json              # structure only: types, finite numbers, schema keys
 loopwright solve --json plan.json --out out/    # an organisers' JSON file instead of a dataset id
 loopwright config                               # the default settings as JSON
+loopwright batch --sample 100 --workers 8       # random ResPlan plans, failures grouped by cause
 ```
 
 Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`.

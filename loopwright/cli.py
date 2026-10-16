@@ -83,10 +83,37 @@ def cmd_validate(args):
     return 0 if result["valid"] else 1
 
 
+def cmd_batch(args):
+    from loopwright.batch import report, run_batch, sample, write_rows
+    from loopwright.io.resplan import load_plans
+
+    plans = load_plans(args.data)
+    if args.sample:
+        plans = sample(plans, args.sample, args.seed)
+    settings = _settings(args)
+    rows = run_batch(plans, settings, workers=args.workers)
+    out = pathlib.Path(args.report)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    write_rows(rows, out.with_suffix(".jsonl"))
+    text = report(rows, settings)
+    out.write_text(text, encoding="utf-8")
+    print(text)
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="loopwright", description="Hub placement and closed-ring cable routing")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("config", help="print the default settings as JSON")
+    b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
+    b.add_argument("--data", default=DEFAULT_DATA)
+    b.add_argument("--sample", type=int, help="random sample size (default: all plans)")
+    b.add_argument("--seed", type=int, default=7)
+    b.add_argument("--workers", type=int, default=4)
+    b.add_argument("--report", default="bench/report.md")
+    b.add_argument("--zone-link", choices=ZONE_LINKS)
+    b.add_argument("--max-nodes", type=int)
+    b.add_argument("--max-area", type=float)
     for name in ("solve", "validate"):
         q = sub.add_parser(name)
         if name == "validate":
@@ -102,6 +129,8 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.command == "config":
         return cmd_config(args)
+    if args.command == "batch":
+        return cmd_batch(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")

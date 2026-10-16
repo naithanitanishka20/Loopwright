@@ -19,6 +19,32 @@ def test_validate_command_reports_bad_json(tmp_path, capsys):
     assert output.rstrip().endswith("INVALID")
 
 
+def test_batch_command_samples_runs_and_writes_both_reports(tmp_path, monkeypatch, capsys):
+    import loopwright.batch as batch
+    import loopwright.io.resplan as resplan
+
+    seen = {}
+    monkeypatch.setattr(resplan, "load_plans", lambda path: {1: "a", 2: "b", 3: "c"})
+    monkeypatch.setattr(batch, "sample", lambda plans, n, seed: (seen.update(n=n, seed=seed), {1: "a"})[1])
+
+    def fake_run(plans, settings, workers):
+        seen.update(plans=plans, zone_link=settings.zone_link, workers=workers)
+        return [{"id": 1, "status": "valid"}]
+
+    monkeypatch.setattr(batch, "run_batch", fake_run)
+    monkeypatch.setattr(batch, "report", lambda rows, settings: "# Batch report\n")
+    report = tmp_path / "bench" / "r.md"
+
+    code = main(["batch", "--sample", "1", "--seed", "3", "--workers", "2",
+                 "--zone-link", "through_rooms", "--report", str(report)])
+
+    assert code == 0
+    assert seen == {"n": 1, "seed": 3, "plans": {1: "a"}, "zone_link": "through_rooms", "workers": 2}
+    assert report.read_text(encoding="utf-8") == "# Batch report\n"
+    assert json.loads(report.with_suffix(".jsonl").read_text(encoding="utf-8").splitlines()[0])["id"] == 1
+    assert "# Batch report" in capsys.readouterr().out
+
+
 def test_validate_command_rejects_nan_in_json(tmp_path, capsys):
     path = tmp_path / "nan.json"
     path.write_text('{"schema": "loopwright/2", "plan_id": NaN}', encoding="utf-8")

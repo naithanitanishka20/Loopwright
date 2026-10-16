@@ -80,6 +80,25 @@ def test_hub_in_the_wrong_room_fails_v06(solved):
     assert "V06" in failed(plan, bad)
 
 
+def test_routes_go_through_the_door(solved):
+    plan, out = solved
+    crossing = [leg for leg in out["rings"][0]["legs"]
+                if min(p[0] for p in leg["path"]) < 4.95 < max(p[0] for p in leg["path"])]
+    assert crossing, "some leg must cross the middle wall"
+    for leg in crossing:
+        for (x0, y0), (x1, y1) in zip(leg["path"], leg["path"][1:]):
+            if min(x0, x1) < 5.0 < max(x0, x1):
+                assert 1.5 < y0 < 2.4, f"crossed the wall outside the door at y={y0}"
+
+
+def test_walling_up_the_door_breaks_zone_contiguity(solved):
+    plan, out = solved
+    from shapely.ops import unary_union
+
+    sealed = dict(plan, wall=unary_union([plan["wall"], plan["door"]]), door=None)
+    assert "V05" in failed(sealed, out)
+
+
 def test_caps_are_enforced(solved):
     plan, out = solved
     assert "V03" in failed(plan, out, DEFAULT.with_overrides(max_area_m2=20.0))

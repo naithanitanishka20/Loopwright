@@ -102,7 +102,28 @@ def validate(plan, out, settings):
     _check(checks, "V03", not over_area, "; ".join(over_area))
     _check(checks, "V04", not over_nodes, "; ".join(over_nodes))
 
-    checks.append({"id": "V05", "pass": None, "detail": "zone contiguity needs the door graph (Phase 3)"})
+    # V05: zone connected under the declared rule, on the validator's own link test
+    zone_link = out["rules"].get("zone_link", "strict")
+    if zone_link == "none":
+        checks.append({"id": "V05", "pass": None, "detail": "output declares no zone rule"})
+    else:
+        wd = float(plan.get("wall_depth") or 0) or 0.2 / s
+        walls_raw, doors_raw = _valid(plan.get("wall")), _valid(plan.get("door"))
+        barrier = walls_raw
+        if barrier is not None and doors_raw is not None and not doors_raw.is_empty:
+            barrier = barrier.difference(doors_raw)
+        if zone_link == "strict":
+            connectors = set()
+        elif zone_link == "circulation":
+            connectors = {r for r in rooms if r.split("_")[0] in ("bathroom", "stair")}
+        else:
+            connectors = set(rooms)
+        disconnected = []
+        for h in out["hubs"]:
+            zone = [r for r in h["zone"] if r in rooms]
+            if len(zone) > 1 and not _zone_connected(zone, connectors, rooms, barrier, wd):
+                disconnected.append(h["id"])
+        _check(checks, "V05", not disconnected, f"zones not connected under '{zone_link}': {disconnected}")
 
     # V06: hub inside an eligible room of its own zone
     bad_hubs = []
@@ -173,6 +194,28 @@ def validate(plan, out, settings):
 
     valid = all(c["pass"] is not False for c in checks)
     return {"valid": valid, "checks": checks}
+
+
+def _linked(a, b, barrier, wd):
+    """Rooms a and b share a passage: their grown outlines overlap somewhere no wall covers."""
+    gap = a.buffer(wd * 0.6).intersection(b.buffer(wd * 0.6))
+    if gap.is_empty:
+        return False
+    if barrier is not None and not barrier.is_empty:
+        gap = gap.difference(barrier)
+    return gap.area > 0.2 * wd * wd
+
+
+def _zone_connected(zone, connectors, rooms, barrier, wd):
+    allowed = set(zone) | set(connectors)
+    seen, stack = {zone[0]}, [zone[0]]
+    while stack:
+        u = stack.pop()
+        for v in allowed - seen:
+            if _linked(rooms[u], rooms[v], barrier, wd):
+                seen.add(v)
+                stack.append(v)
+    return all(r in seen for r in zone)
 
 
 def _close(p, q, tol=1e-3):
