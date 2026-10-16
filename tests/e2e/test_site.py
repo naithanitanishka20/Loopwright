@@ -10,6 +10,8 @@ import threading
 
 import pytest
 
+pytestmark = pytest.mark.e2e
+
 SITE = pathlib.Path(__file__).resolve().parents[2] / "site"
 DATA = json.loads((SITE / "data.js").read_text(encoding="utf-8")[len("window.LOOPWRIGHT = "):].rstrip().rstrip(";"))
 FEATURES = {"edit": "Edit a plan, re-solve live", "cut": "Cut-the-cable simulation",
