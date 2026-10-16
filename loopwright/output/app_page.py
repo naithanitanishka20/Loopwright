@@ -148,6 +148,7 @@ PAGE = """<!doctype html>
 #app .tabs, #app .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 #app .pane-body { display: grid; gap: 10px; }
 #app .hint { margin: 0; color: var(--graphite); font-size: 13px; }
+#plan-suggest { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--ink) !important; }
 #stage { display: grid; gap: 10px; min-width: 0; }
 #toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 #app .views { display: inline-flex; margin-right: 6px; }
@@ -205,8 +206,10 @@ PAGE = """<!doctype html>
       <button type="button" role="tab" id="tab-draw" aria-controls="pane-draw">Draw</button>
     </div>
     <div class="pane-body" id="pane-id" role="tabpanel">
-      <label>ResPlan plan <input id="plan-id" inputmode="numeric" value="16448"></label>
-      <div class="row"><button type="button" id="load-id">Solve</button></div>
+      <label>ResPlan plan <input id="plan-id" inputmode="numeric" list="plan-ids" autocomplete="off" value="16448"></label>
+      <datalist id="plan-ids"></datalist>
+      <div class="row"><button type="button" id="load-id">Solve</button><button type="button" id="random-id" disabled>Random</button><button type="button" id="next-id" disabled>Next</button></div>
+      <p class="hint" id="plan-suggest" hidden></p>
       <p class="hint" id="dataset-note"></p>
     </div>
     <div class="pane-body" id="pane-upload" role="tabpanel" hidden>
@@ -265,7 +268,7 @@ PAGE = """<!doctype html>
   var TYPES = ["living", "bedroom", "kitchen", "storage", "bathroom", "stair"];
   var GRID_W = 20, GRID_H = 14, SNAP = 0.5;
   var state = { source: null, edits: [], settings: { zone_link: "strict" }, data: null, mode: "view", view: "plan",
-                tab: "id", cut: null, draw: { rooms: [], doors: {} }, drag: null, model: null };
+                tab: "id", cut: null, draw: { rooms: [], doors: {} }, drag: null, model: null, ids: [], idSet: null };
   var $ = function (id) { return document.getElementById(id); };
   var svg = $("plan");
 
@@ -534,10 +537,30 @@ PAGE = """<!doctype html>
     if (state.tab === "draw") setTab("id");
     return solve();
   }
+  // ResPlan numbers its plans from 0 to 999398 with gaps, so a number that isn't a plan gets the nearest that are
+  function nearest(n, k) {
+    var ids = state.ids, lo = 0, hi = ids.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (ids[mid] < n) lo = mid + 1; else hi = mid; }
+    return ids.slice(Math.max(0, lo - k), lo + k)
+      .sort(function (a, b) { return Math.abs(a - n) - Math.abs(b - n) || a - b; }).slice(0, k)
+      .sort(function (a, b) { return a - b; });
+  }
+  function suggest(id) {
+    var box = $("plan-suggest"); clear(box);
+    text("span", "Plan " + id + " isn't in ResPlan. The nearest:", box);
+    nearest(Number(id), 3).forEach(function (n) {
+      var b = text("button", String(n), box); b.type = "button";
+      b.addEventListener("click", function () { pick(n); });
+    });
+    box.hidden = false;
+  }
+  function pick(n) { $("plan-id").value = String(n); return loadById(); }
   function loadById() {
     var id = $("plan-id").value.trim();
-    if (!id) return status("Type a plan id.", true);
-    return startFrom({ plan_id: /^[0-9]+$/.test(id) ? Number(id) : id });
+    $("plan-suggest").hidden = true;
+    if (!/^[0-9]+$/.test(id)) return status("Type a plan number, for example 2916, or press Random.", true);
+    if (state.idSet && !state.idSet.has(Number(id))) return suggest(id);
+    return startFrom({ plan_id: Number(id) });
   }
   function importFile() {
     var f = $("file").files[0];
@@ -676,6 +699,11 @@ PAGE = """<!doctype html>
   $("tab-draw").addEventListener("click", function () { setTab("draw"); });
   $("load-id").addEventListener("click", loadById);
   $("plan-id").addEventListener("keydown", function (e) { if (e.key === "Enter") loadById(); });
+  $("random-id").addEventListener("click", function () { pick(state.ids[Math.floor(Math.random() * state.ids.length)]); });
+  $("next-id").addEventListener("click", function () {
+    var at = Number($("plan-id").value), next = state.ids.filter(function (n) { return n > at; })[0];
+    pick(next === undefined ? state.ids[0] : next);
+  });
   $("import").addEventListener("click", importFile);
   $("draw-solve").addEventListener("click", solveSketch);
   $("draw-clear").addEventListener("click", function () { state.draw = { rooms: [], doors: {} }; drawGrid(); });
@@ -697,9 +725,20 @@ PAGE = """<!doctype html>
   $("installer").addEventListener("click", openInstaller);
   $("download").addEventListener("click", download);
 
-  fetch("/api/plans").then(function (r) { return r.json(); }).then(function (p) {
+  fetch("/api/plans").then(function (r) {
+    if (!r.ok) throw new Error("The plan list didn't load (" + r.status + "); draw or upload a plan meanwhile.");
+    return r.json();
+  }).then(function (p) {
     if (p.available) {
-      $("dataset-note").textContent = p.test.length + " test-split plans available, for example " + p.test.slice(0, 3).join(", ") + ".";
+      state.ids = p.ids || [];
+      state.idSet = state.ids.length ? new Set(state.ids) : null;
+      var list = $("plan-ids");
+      state.ids.forEach(function (n) { text("option", "", list).value = String(n); });
+      $("random-id").disabled = $("next-id").disabled = !state.ids.length;
+      $("dataset-note").textContent = state.ids.length
+        ? state.ids.length.toLocaleString("en-GB") + " ResPlan plans, numbered " + state.ids[0] + " to " + state.ids[state.ids.length - 1] +
+          " with gaps: pick one from the list, or press Random."
+        : p.test.length + " test-split plans available.";
       setTab("id");
       if ($("model-figure") && !location.hash) { setView("model"); loadById(); }  // the playground opens on a solved plan, as a model
     } else {
@@ -708,7 +747,7 @@ PAGE = """<!doctype html>
       setTab("draw");
     }
     openFromLink(p.available);
-  }).catch(function () { setTab("draw"); openFromLink(false); });
+  }).catch(function (e) { status(e.message, true); setTab("draw"); openFromLink(false); });
 })();
 </script>
 </body></html>

@@ -124,7 +124,7 @@ def test_the_app_page_and_dataset_status(client):
     assert page.status_code == 200 and 'id="app"' in page.text
     assert page.headers["x-frame-options"] == "DENY"
     assert "default-src 'self'" in page.headers["content-security-policy"]
-    assert client.get("/api/plans").json() == {"available": False, "test": []}
+    assert client.get("/api/plans").json() == {"available": False, "ids": [], "test": []}
 
 
 def test_installer_pack_page(client):
@@ -147,7 +147,7 @@ def test_resplan_plans_by_id_under_both_zone_rules():
     assert (strict, loose) == (4, 2)
     assert client.post("/api/solve", json={"source": {"plan_id": 999999999}}).status_code == 404
     listing = client.get("/api/plans").json()
-    assert listing["available"] is True and len(listing["test"]) == 1632
+    assert listing["available"] is True and len(listing["test"]) == 1632 and len(listing["ids"]) == 17000
 
 
 def a_site(tmp_path):
@@ -169,7 +169,7 @@ def test_with_a_site_folder_the_site_is_the_front_page_and_the_app_moves_to_app(
     assert 'id="app"' in client.get("/app/").text
     moved = client.get("/app", follow_redirects=False)
     assert moved.status_code in (307, 308) and moved.headers["location"].endswith("/app/")
-    assert client.get("/api/plans").json() == {"available": False, "test": []}
+    assert client.get("/api/plans").json() == {"available": False, "ids": [], "test": []}
     assert client.get("/missing.html").status_code == 404
 
 
@@ -219,3 +219,34 @@ def test_on_its_own_the_app_page_needs_no_site_files(client):
     page = client.get("/").text
     assert 'id="app"' in page and "Playground" in page
     assert "/figure.css" not in page and "/model.js" not in page and 'id="view-model"' not in page
+
+
+def a_store(tmp_path, monkeypatch):
+    import json
+    import pickle
+    import runpy
+    import sys
+
+    script = str(__import__("pathlib").Path(__file__).resolve().parents[2] / "scripts" / "plan_store.py")
+    (tmp_path / "ResPlan.pkl").write_bytes(pickle.dumps([{"id": i} for i in (0, 9, 2916, 999398)], protocol=4))
+    (tmp_path / "split.json").write_text(json.dumps({"train": [0, 2916], "test": [9], "val": [999398]}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", [script, str(tmp_path / "ResPlan.pkl"), str(tmp_path / "plans.sqlite")])
+    runpy.run_path(script, run_name="__main__")
+    return tmp_path / "plans.sqlite"
+
+
+def test_with_a_plan_store_the_app_lists_every_plan_and_names_the_nearest_to_a_missing_one(tmp_path, monkeypatch):
+    client = TestClient(create_app(data_path=str(a_store(tmp_path, monkeypatch))), base_url="http://127.0.0.1")
+    assert client.get("/api/plans").json() == {"available": True, "ids": [0, 9, 2916, 999398], "test": [9]}
+    missing = client.post("/api/solve", json={"source": {"plan_id": 3}})
+    assert missing.status_code == 404
+    assert "plan 3 isn't in ResPlan" in missing.json()["detail"] and "0, 9, 2916" in missing.json()["detail"]
+
+
+def test_with_the_zip_the_plan_list_comes_from_the_split_without_loading_any_plan(tmp_path):
+    import json
+
+    (tmp_path / "ResPlan.zip").write_bytes(b"not read for the list")
+    (tmp_path / "split.json").write_text(json.dumps({"train": [5, 1], "test": [3], "val": [], "augmented": [7]}), encoding="utf-8")
+    client = TestClient(create_app(data_path=str(tmp_path / "ResPlan.zip")), base_url="http://127.0.0.1")
+    assert client.get("/api/plans").json() == {"available": True, "ids": [1, 3, 5, 7], "test": [3]}

@@ -5,6 +5,7 @@ host, so a web page can't reach it through DNS rebinding. Uploads are size
 limited and parsed only as images, PDFs or DXF; ResPlan plans load only from the
 configured file, never from an upload.
 """
+import bisect
 import contextlib
 import json
 import math
@@ -88,10 +89,36 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
         if data is None or not data.exists():
             raise HTTPException(404, "no ResPlan dataset configured; start with --data")
         if "plans" not in cache:
-            from loopwright.io.resplan import load_plans
+            from loopwright.io.resplan import PlanStore, load_plans
 
-            cache["plans"] = {str(p.get("id")): p for p in load_plans(data)}
+            if data.suffix == ".sqlite":  # a plan store: one plan read per request, so every plan can be served
+                cache["plans"] = PlanStore(data)
+            else:
+                cache["plans"] = {str(p.get("id")): p for p in load_plans(data)}
         return cache["plans"]
+
+    def catalogue():
+        """Every plan number and the test split's, without loading a plan: from the store, or from split.json."""
+        if "catalogue" not in cache:
+            if data.suffix == ".sqlite":
+                ids, split = resplan().ids(), resplan().split()
+            else:
+                path = data.with_name("split.json")
+                split = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+                ids = sorted({int(i) for part in split.values() for i in part})
+            cache["catalogue"] = (ids, split.get("test", []))
+        return cache["catalogue"]
+
+    def missing(plan_id):
+        """ResPlan numbers its 17,000 plans from 0 to 999398 with gaps, so name the nearest that exist."""
+        ids = catalogue()[0]
+        try:
+            n = int(plan_id)
+        except (TypeError, ValueError):
+            return f"plan {plan_id} isn't in ResPlan; plans are numbered, for example {', '.join(map(str, ids[:3]))}"
+        i = bisect.bisect_left(ids, n)
+        near = sorted(sorted(ids[max(0, i - 3):i + 3], key=lambda x: (abs(x - n), x))[:3])
+        return f"plan {plan_id} isn't in ResPlan; the nearest are {', '.join(map(str, near))}" if near else f"plan {plan_id} not found"
 
     def plan_for(req):
         src = req.source
@@ -112,7 +139,7 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
         elif src.plan_id is not None:
             plan = resplan().get(str(src.plan_id))
             if plan is None:
-                raise HTTPException(404, f"plan {src.plan_id} not found")
+                raise HTTPException(404, missing(src.plan_id))
         else:
             raise ValueError("source needs a plan_id or a sketch")
         settings = DEFAULT.with_overrides(**req.settings)
@@ -127,9 +154,9 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
     @app.get("/api/plans")
     def plans():
         if data is None or not data.exists():
-            return {"available": False, "test": []}
-        split = data.with_name("split.json")
-        return {"available": True, "test": json.loads(split.read_text(encoding="utf-8"))["test"] if split.exists() else []}
+            return {"available": False, "ids": [], "test": []}
+        ids, test = catalogue()
+        return {"available": True, "ids": ids, "test": test}
 
     @app.post("/api/solve")
     def api_solve(req: SolveRequest):

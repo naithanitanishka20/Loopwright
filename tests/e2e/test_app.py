@@ -275,3 +275,36 @@ def test_with_the_plans_the_playground_opens_on_a_solved_plan_as_a_model(browser
     finally:
         server.should_exit = True
         thread.join(5)
+
+
+@pytest.mark.dataset
+def test_the_plan_picker_offers_only_plans_that_exist(browser, resplan_plans, tmp_path):
+    from loopwright.io.resplan import get_plan, write_store
+
+    store = tmp_path / "plans.sqlite"
+    write_store([get_plan(resplan_plans, i) for i in (2916, 11282, 16448)], {"test": [2916]}, store)
+    server, thread, url = start_server(str(store), SITE)
+    try:
+        page = browser.new_page(viewport={"width": 1400, "height": 1000})
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.goto(url + "app/")
+        page.wait_for_selector("#model svg.live", timeout=60000)
+        assert page.locator("#plan-ids option").count() == 3
+        page.fill("#plan-id", "3")
+        page.click("#load-id")  # ResPlan has no plan 3: the nearest are offered, and the server is never asked
+        assert "isn't in ResPlan" in page.locator("#plan-suggest").inner_text()
+        assert page.locator("#plan-suggest button").all_inner_texts() == ["2916", "11282", "16448"]
+        page.locator("#plan-suggest button").first.click()
+        wait_metric(page, "hubs", "2")
+        assert page.locator("#plan-id").input_value() == "2916" and page.locator("#plan-suggest").is_hidden()
+        page.click("#next-id")
+        page.wait_for_function("document.getElementById('plan-id').value === '11282'")
+        page.click("#random-id")
+        assert page.locator("#plan-id").input_value() in {"2916", "11282", "16448"}
+        assert errors == []
+        page.close()
+    finally:
+        server.should_exit = True
+        thread.join(5)

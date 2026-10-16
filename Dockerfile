@@ -11,12 +11,14 @@ COPY pyproject.toml README.md ./
 COPY loopwright ./loopwright
 RUN pip install ".[serve,import]"
 
-# ResPlan.zip and split.json into data/, each checked against its pinned SHA-256; the app then keeps only
-# the test split and the plans the site opens, a tenth of the memory of all 17,000
-COPY scripts/fetch_resplan.py scripts/hosted_plans.py ./scripts/
+# ResPlan.zip and split.json into data/, each checked against its pinned SHA-256, then every plan into one
+# store the server reads a plan at a time from, the split inside it. The downloads are written readable by
+# root only, so the store is opened up for the server's own user and the downloads go.
+COPY scripts/fetch_resplan.py scripts/plan_store.py ./scripts/
 RUN python scripts/fetch_resplan.py \
- && python scripts/hosted_plans.py data/ResPlan.zip data/hosted.pkl \
- && rm data/ResPlan.zip
+ && python scripts/plan_store.py data/ResPlan.zip data/plans.sqlite \
+ && rm data/ResPlan.zip data/split.json \
+ && chmod a+r data/plans.sqlite
 
 COPY site ./site
 
@@ -26,4 +28,4 @@ USER loopwright
 EXPOSE 8000
 # Railway sets PORT. A public service answers to any host name, so a domain added later works at once;
 # the host check is for the app on a machine of its own, where it guards against DNS rebinding.
-CMD exec loopwright serve --site site --data data/hosted.pkl --host 0.0.0.0 --port "${PORT:-8000}" --allow-host "*"
+CMD exec loopwright serve --site site --data data/plans.sqlite --host 0.0.0.0 --port "${PORT:-8000}" --allow-host "*"
