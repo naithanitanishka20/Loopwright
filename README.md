@@ -2,16 +2,16 @@
 
 Hub placement and closed-ring cable routing on residential floor plans.
 
-Given a floor plan, Loopwright decides how many hubs, where each goes, which rooms and nodes each serves, the visiting order, and an axis-aligned cable route for every closed ring. Designs are ranked the organisers' way: fewest hubs first, then lowest cost J. Every output is re-checked by an independent validator (rules V00-V14) that rebuilds rooms, walls and doors from the raw plan and imports nothing from the solver.
+Given a floor plan, Loopwright decides how many hubs, where each goes, which rooms and nodes each serves, the visiting order, and an axis-aligned cable route for every closed ring. Designs are ranked the organisers' way: fewest hubs first, then lowest cost J. Every output is re-checked by an independent validator (rules V00-V16) that rebuilds rooms, walls and doors from the raw plan and imports nothing from the solver.
 
 ## Results
 
 Every ResPlan plan, all 17,000 (`bench/results.md`, written by `loopwright results` from the batch records in `bench/`):
 
 - **Valid**: 16,556 of 16,556 feasible plans. The other 444 each have a room over 100 m², which no design can satisfy; they are flagged infeasible.
-- **Hubs**: 29,421 against a lower bound of 23,920; the greedy baseline needs 31,111. 12,893 plans meet the bound exactly. The rest are held above it by the door rule or by rooms that don't pack into zones of at most 100 m² and 5 nodes; "Why this many hubs?" names the reason on any plan.
-- **Cable**: J = 645,322 over the valid plans, 39.0 per plan. Rings cross on 7 plans and share 2.9 m of route on 5.
-- **Time**: one process on a laptop, test split: p50 0.13 s, p95 0.54 s per plan.
+- **Hubs**: 29,377 against a lower bound of 23,893; the greedy baseline needs 31,046. 12,906 plans meet the bound exactly. The rest are held above it by the door rule or by rooms that don't pack into zones of at most 100 m² and 5 nodes; "Why this many hubs?" names the reason on any plan.
+- **Cable**: 323,483 m in all; J = 446,668, 27.0 per plan, scored exactly as the organisers' slide 7 defines the metrics (bends at nodes and the hub, crossings and overlap inside and between rings). Nodes sit by the doors and legs keep to separate lanes, so a ring rarely runs over itself.
+- **Time**: one process on a laptop, test split: p50 0.38 s, p95 1.26 s per plan.
 
 ![Hubs above the lower bound per plan, exact against greedy](docs/figures/extra-hubs.svg)
 
@@ -57,7 +57,7 @@ The server listens on 127.0.0.1 only and refuses requests addressed to any other
 ```bash
 loopwright solve --id 14433 --out out/               # out/14433.json, .svg, .html (viewer), .installer.html and .installer.csv
 loopwright solve --json plan.json --out out/         # an organisers' plan file instead of a ResPlan id
-loopwright validate out/14433.json --id 14433        # structure, then the independent checks V00-V14
+loopwright validate out/14433.json --id 14433        # structure, then the independent checks V00-V16
 loopwright validate out/14433.json                   # structure only: types, finite numbers, schema keys
 loopwright index out/                                # out/index.html listing every solved plan
 loopwright batch --split test --workers 4            # a ResPlan split, failures grouped by cause
@@ -78,7 +78,7 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/optimize/` | Lower bound, zones, exact hub count, greedy baseline |
 | `loopwright/routing/` | Axis-aligned grid router with exact bend costs |
 | `loopwright/solve.py` | The pipeline, hub placement on the ring, and the repair pass |
-| `loopwright/validate/` | Independent validator: structure checks, rules V00-V14, scorer |
+| `loopwright/validate/` | Independent validator: structure checks, rules V00-V16, scorer (metrics as the organisers define them) |
 | `loopwright/output/` | JSON (schema `loopwright/2`), SVG overlay, viewer, installer pack, cut analysis, explanations, app page |
 | `loopwright/api/` | The local server behind the app |
 | `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |

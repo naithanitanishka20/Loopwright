@@ -85,7 +85,7 @@ def _print_checks(checks):
 
 
 def cmd_validate(args):
-    """Structure first (types, finite numbers, schema keys), then rules V00-V14 against the plan."""
+    """Structure first (types, finite numbers, schema keys), then rules V00-V16 against the plan."""
     from loopwright.validate.structure import DesignValidationError, load_design
 
     try:
@@ -100,7 +100,7 @@ def cmd_validate(args):
         return 1
     if not args.json and not args.id:
         _print_checks([{"id": "structure", "pass": True}])
-        print("valid (structure only; give --id or --json to check rules V00-V14)")
+        print("valid (structure only; give --id or --json to check rules V00-V16)")
         return 0
 
     from loopwright.validate.rules import validate
