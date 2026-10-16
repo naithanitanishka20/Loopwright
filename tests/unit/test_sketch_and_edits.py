@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from loopwright.config import DEFAULT
@@ -32,6 +34,17 @@ def test_a_door_between_rooms_that_share_no_wall_is_refused():
 def test_an_unknown_room_type_is_refused():
     with pytest.raises(ValueError, match="room type"):
         build_plan([{"type": "ballroom", "polygon": LIVING["polygon"]}], doors=[])
+
+
+@pytest.mark.parametrize("wall_m", [0, -1, math.nan, math.inf, True])
+def test_invalid_wall_width_is_refused(wall_m):
+    with pytest.raises(ValueError, match="wall_m must be a finite positive number"):
+        build_plan([LIVING], doors=[], wall_m=wall_m)
+
+
+def test_invalid_door_indices_are_refused():
+    with pytest.raises(ValueError, match="door room indices"):
+        build_plan([LIVING, BEDROOM], doors=[(0, 2)])
 
 
 def test_removing_the_only_door_splits_the_zone():

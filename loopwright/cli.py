@@ -1,6 +1,7 @@
 """Command line: loopwright solve | validate | index | batch | results | charts | site | serve | config."""
 import argparse
 import json
+import math
 import os
 import pathlib
 import sys
@@ -8,6 +9,29 @@ import sys
 from loopwright.config import DEFAULT, ZONE_LINKS
 
 DEFAULT_DATA = os.environ.get("LOOPWRIGHT_DATA", "data/ResPlan.zip")
+
+
+def _positive_int(value):
+    parsed = int(value)
+    if str(parsed) != value or parsed < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _positive_float(value):
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a finite positive number")
+    return parsed
+
+
+def _worker_count(value):
+    parsed = _positive_int(value)
+    from loopwright.batch import MAX_WORKERS
+
+    if parsed > MAX_WORKERS:
+        raise argparse.ArgumentTypeError(f"must be at most {MAX_WORKERS}")
+    return parsed
 
 
 def _load_plan(args):
@@ -222,13 +246,13 @@ def main(argv=None):
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
     b.add_argument("--split-file", help="path to split.json (default: next to --data)")
-    b.add_argument("--sample", type=int, help="random sample size (default: all plans)")
+    b.add_argument("--sample", type=_positive_int, help="random sample size (default: all plans)")
     b.add_argument("--seed", type=int, default=7)
-    b.add_argument("--workers", type=int, default=4)
+    b.add_argument("--workers", type=_worker_count, default=4)
     b.add_argument("--report", default="bench/report.md")
     b.add_argument("--zone-link", choices=ZONE_LINKS)
-    b.add_argument("--max-nodes", type=int)
-    b.add_argument("--max-area", type=float)
+    b.add_argument("--max-nodes", type=_positive_int)
+    b.add_argument("--max-area", type=_positive_float)
     for name in ("solve", "validate"):
         q = sub.add_parser(name)
         if name == "validate":
@@ -237,8 +261,8 @@ def main(argv=None):
         q.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip or .pkl (default: %(default)s)")
         q.add_argument("--json", help="an organisers' plan JSON instead of a ResPlan id")
         q.add_argument("--zone-link", choices=ZONE_LINKS, help="assumptions Q1")
-        q.add_argument("--max-nodes", type=int, help="assumptions Q4")
-        q.add_argument("--max-area", type=float, help="area cap in m²")
+        q.add_argument("--max-nodes", type=_positive_int, help="assumptions Q4")
+        q.add_argument("--max-area", type=_positive_float, help="area cap in m²")
         if name == "solve":
             q.add_argument("--out", default="out", help="output folder (default: %(default)s)")
     args = p.parse_args(argv)

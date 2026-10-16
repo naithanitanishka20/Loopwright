@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from loopwright.cli import main
 
 
@@ -105,3 +107,18 @@ def test_solve_and_validate_commands_use_organiser_json(tmp_path, capsys):
 
     assert main(["validate", str(design_path), "--json", str(plan_path)]) == 0
     assert capsys.readouterr().out.rstrip().endswith("valid")
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["batch", "--workers", "0"],
+        ["batch", "--workers", "65"],
+        ["batch", "--sample", "0"],
+        ["solve", "--json", "plan.json", "--max-area", "nan"],
+    ],
+)
+def test_cli_rejects_invalid_numeric_limits(arguments):
+    with pytest.raises(SystemExit) as exc:
+        main(arguments)
+    assert exc.value.code == 2

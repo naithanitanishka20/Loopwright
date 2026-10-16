@@ -43,6 +43,7 @@ def test_edits_and_settings_apply_before_solving(client):
     ({"source": {"sketch": SKETCH}, "edits": [{"op": "paint_walls"}]}, "unknown edit"),
     ({"source": {}}, "plan_id or a sketch"),
     ({"source": {"sketch": {**SKETCH, "doors": [[0, -1]]}}}, "doesn't have"),
+    ({"source": {"sketch": {**SKETCH, "doors": [[True, 1]]}}}, "door room indices"),
 ])
 def test_bad_requests_get_a_400_with_the_reason(client, payload, message):
     r = client.post("/api/solve", json=payload)
@@ -95,6 +96,12 @@ def test_unsupported_and_oversized_uploads_are_refused(tmp_path):
                        data={"m_per_px": 0.02}).status_code == 413
 
 
+@pytest.mark.parametrize("limit", [0, -1, float("nan"), float("inf"), True])
+def test_invalid_upload_limits_are_rejected(limit):
+    with pytest.raises(ValueError, match="max_upload_mb must be a finite positive number"):
+        create_app(data_path=None, max_upload_mb=limit)
+
+
 def test_an_image_claiming_huge_dimensions_is_refused_before_decoding(client):
     import struct
     import zlib
@@ -128,6 +135,10 @@ def test_installer_pack_page(client):
 @pytest.mark.dataset
 def test_resplan_plans_by_id_under_both_zone_rules():
     from tests.conftest import DATA
+
+    split = DATA.with_name("split.json")
+    if not split.exists():
+        pytest.skip(f"dataset split not found at {split}")
 
     client = TestClient(create_app(data_path=str(DATA)), base_url="http://127.0.0.1")
     strict = client.post("/api/solve", json={"source": {"plan_id": 16448}}).json()["design"]["metrics"]["hubs"]

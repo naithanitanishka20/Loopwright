@@ -76,6 +76,10 @@ def _trace(mask):
 
 
 def _sketch(grey, m_per_px, area_m2, door_m):
+    for name, value in (("m_per_px", m_per_px), ("area_m2", area_m2), ("door_m", door_m)):
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
+                                  or not math.isfinite(value) or value <= 0):
+            raise ValueError(f"{name} must be a finite positive number")
     walls, t = _walls(grey)
     if not walls.any():
         raise ValueError("no rooms found: the image has no walls drawn in it")
@@ -122,6 +126,14 @@ def read_image(source, *, m_per_px=None, area_m2=None, door_m=DOOR_M):
 def read_pdf(source, *, page=0, dpi=150, scale=None, m_per_px=None, area_m2=None, door_m=DOOR_M):
     """A PDF page rendered at dpi. scale is the drawing's ratio (100 for 1:100), or give m_per_px or area_m2."""
     import pdfplumber
+
+    if type(page) is not int or page < 0:
+        raise ValueError("page must be a non-negative integer")
+    if type(dpi) is not int or dpi < 1:
+        raise ValueError("dpi must be a positive integer")
+    if scale is not None and (isinstance(scale, bool) or not isinstance(scale, (int, float))
+                              or not math.isfinite(scale) or scale <= 0):
+        raise ValueError("scale must be a finite positive number")
 
     with pdfplumber.open(io.BytesIO(source) if isinstance(source, (bytes, bytearray)) else source) as pdf:
         if not 0 <= page < len(pdf.pages):

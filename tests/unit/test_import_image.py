@@ -1,5 +1,6 @@
 """Assisted import from a plan image or PDF, on synthetic drawings (black walls on white, 8 px thick)."""
 import io
+import math
 
 import pytest
 
@@ -148,3 +149,15 @@ def test_two_bedrooms_off_a_living_room_share_its_hub():
     sketch = read_image(two_bedrooms_off_a_living_room(), m_per_px=M_PER_PX)
     assert sketch["doors"] == [[0, 1], [0, 2]]
     assert solve_sketch(sketch) == (1, True)  # 93 m² and three nodes fit one zone
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"m_per_px": 0},
+    {"m_per_px": math.nan},
+    {"m_per_px": math.inf},
+    {"area_m2": -1},
+    {"door_m": True},
+])
+def test_invalid_import_scales_are_refused(kwargs):
+    with pytest.raises(ValueError, match="must be a finite positive number"):
+        read_image(plan_image(), **kwargs)
