@@ -148,3 +148,41 @@ def test_resplan_plans_by_id_under_both_zone_rules():
     assert client.post("/api/solve", json={"source": {"plan_id": 999999999}}).status_code == 404
     listing = client.get("/api/plans").json()
     assert listing["available"] is True and len(listing["test"]) == 1632
+
+
+def a_site(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "index.html").write_text("<!doctype html><html><head><title>Loopwright</title></head><body>the site</body></html>",
+                                     encoding="utf-8")
+    (site / "styles.css").write_text("body{}", encoding="utf-8")
+    return site
+
+
+def test_with_a_site_folder_the_site_is_the_front_page_and_the_app_moves_to_app(tmp_path):
+    client = TestClient(create_app(data_path=None, site_dir=a_site(tmp_path)), base_url="http://127.0.0.1")
+    front = client.get("/")
+    assert front.status_code == 200 and "the site" in front.text
+    assert '<meta name="loopwright:app" content="/app/">' in front.text  # the site's feature buttons open this app
+    assert "default-src 'self'" in front.headers["content-security-policy"]
+    assert client.get("/styles.css").text == "body{}"
+    assert 'id="app"' in client.get("/app/").text
+    moved = client.get("/app", follow_redirects=False)
+    assert moved.status_code in (307, 308) and moved.headers["location"].endswith("/app/")
+    assert client.get("/api/plans").json() == {"available": False, "test": []}
+    assert client.get("/missing.html").status_code == 404
+
+
+def test_serve_can_put_the_site_in_front_and_answer_to_a_public_host(tmp_path, monkeypatch):
+    import uvicorn
+
+    from loopwright.cli import main
+
+    served = {}
+    monkeypatch.setattr(uvicorn, "run", lambda app, **options: served.update(app=app, **options))
+    assert main(["serve", "--site", str(a_site(tmp_path)), "--host", "0.0.0.0", "--port", "8080",
+                 "--allow-host", "loopwright.example"]) == 0
+    assert (served["host"], served["port"]) == ("0.0.0.0", 8080)
+    client = TestClient(served["app"], base_url="http://loopwright.example")
+    assert "the site" in client.get("/").text and 'id="app"' in client.get("/app/").text
+    assert client.get("/", headers={"host": "evil.example"}).status_code == 400

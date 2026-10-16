@@ -8,12 +8,14 @@ configured file, never from an upload.
 import contextlib
 import json
 import math
+import mimetypes
 import pathlib
 import tempfile
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from shapely.errors import ShapelyError
 
@@ -65,7 +67,7 @@ def _bad_input(*kinds):
         raise HTTPException(400, str(exc).strip("'\"")) from exc
 
 
-def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", "localhost")):
+def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", "localhost"), site_dir=None):
     if (isinstance(max_upload_mb, bool) or not isinstance(max_upload_mb, (int, float))
             or not math.isfinite(max_upload_mb) or max_upload_mb <= 0):
         raise ValueError("max_upload_mb must be a finite positive number")
@@ -115,7 +117,7 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
         settings = DEFAULT.with_overrides(**req.settings)
         return apply_edits(plan, req.edits, settings), settings
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/app/" if site_dir else "/", response_class=HTMLResponse)
     def index():
         return render_app()
 
@@ -182,5 +184,21 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
 
                 return read_image(raw, m_per_px=m_per_px, area_m2=area_m2)  # refuses an image too big to process
         raise HTTPException(400, "upload a PNG, JPEG, PDF or DXF file")
+
+    if site_dir:  # the product site in front and the app behind /app/, as on a hosted copy
+        site = pathlib.Path(site_dir)
+        front = (site / "index.html").read_text(encoding="utf-8").replace(
+            "</head>", '<meta name="loopwright:app" content="/app/">\n</head>', 1)
+
+        @app.get("/", response_class=HTMLResponse)
+        def front_page():
+            return front
+
+        @app.get("/app", include_in_schema=False)
+        def to_app():
+            return RedirectResponse("/app/")
+
+        mimetypes.add_type("font/woff2", ".woff2")  # not every platform's table knows it
+        app.mount("/", StaticFiles(directory=site), name="site")
 
     return app

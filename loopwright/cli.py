@@ -213,8 +213,9 @@ def cmd_serve(args):
     from loopwright.api.app import create_app
 
     data = args.data if pathlib.Path(args.data).exists() else None
-    app = create_app(data_path=data, allowed_hosts=("127.0.0.1", "localhost", args.host))
-    print(f"Loopwright on http://{args.host}:{args.port}/  (ResPlan: {data or 'not found; sketch, import and edit only'})")
+    app = create_app(data_path=data, allowed_hosts=("127.0.0.1", "localhost", args.host, *args.allow_host), site_dir=args.site)
+    front = " (the site; the app at /app/)" if args.site else ""
+    print(f"Loopwright on http://{args.host}:{args.port}/{front}  (ResPlan: {data or 'not found; sketch, import and edit only'})")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0
 
@@ -241,6 +242,8 @@ def main(argv=None):
     sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
     sv.add_argument("--port", type=int, default=8000)
     sv.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip for plans by id (default: %(default)s)")
+    sv.add_argument("--site", help="a built site folder to serve in front, with the app at /app/ (a hosted copy)")
+    sv.add_argument("--allow-host", action="append", default=[], help="another host name to answer to, such as a public domain")
     b = sub.add_parser("batch", help="run many ResPlan plans and group failures by cause")
     b.add_argument("--data", default=DEFAULT_DATA)
     b.add_argument("--split", choices=("train", "val", "test", "augmented"), help="a ResPlan split from split.json")
