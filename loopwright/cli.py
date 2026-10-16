@@ -1,4 +1,4 @@
-"""Command line: loopwright solve | validate | index | batch | results | charts | serve | config."""
+"""Command line: loopwright solve | validate | index | batch | results | charts | site | serve | config."""
 import argparse
 import json
 import os
@@ -163,6 +163,26 @@ def cmd_charts(args):
     return 0
 
 
+def cmd_site(args):
+    from loopwright.config import DEFAULT
+    from loopwright.io.resplan import get_plan, load_plans
+    from loopwright.site import build_site
+
+    plans = load_plans(args.data)
+    hero, rule, compare = (get_plan(plans, pid) for pid in (2916, 16448, 11282))
+    drawings = {
+        "hero": (hero, DEFAULT),
+        "rule_strict": (rule, DEFAULT),
+        "rule_through": (rule, DEFAULT.with_overrides(zone_link="through_rooms")),
+        "before": (compare, DEFAULT.with_overrides(node_rule="pole", separate_lanes=False)),
+        "after": (compare, DEFAULT),
+    }
+    n = build_site(args.out, drawings, args.bench)["numbers"]
+    print(f"wrote {args.out}/data.js and {args.out}/assets: {n['valid']:,} of {n['feasible']:,} feasible plans valid, "
+          f"{n['hubs']:,} hubs")
+    return 0
+
+
 def cmd_serve(args):
     import uvicorn
 
@@ -189,6 +209,10 @@ def main(argv=None):
     ch.add_argument("--runtime", help="records of a one-worker batch for the runtime figure "
                                       "(default: the runs' own times)")
     ch.add_argument("--out", default="docs/figures")
+    st = sub.add_parser("site", help="regenerate the product site's drawings, charts and numbers")
+    st.add_argument("--out", default="site")
+    st.add_argument("--bench", default="bench", help="folder of batch records (default: %(default)s)")
+    st.add_argument("--data", default=DEFAULT_DATA, help="ResPlan.zip (default: %(default)s)")
     sv = sub.add_parser("serve", help="run the demo app on this machine")
     sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
     sv.add_argument("--port", type=int, default=8000)
@@ -229,6 +253,8 @@ def main(argv=None):
         return cmd_results(args)
     if args.command == "charts":
         return cmd_charts(args)
+    if args.command == "site":
+        return cmd_site(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")
