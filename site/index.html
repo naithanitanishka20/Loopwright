@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loopwright</title>
+<meta name="description" content="Loopwright plans the network cabling of a home from its floor plan: the fewest hubs, then the least cable, with one closed ring of cable per hub.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Loopwright">
+<meta property="og:description" content="The fewest hubs, then the least cable. Hub placement and closed-ring cable routing on residential floor plans.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add("js");</script>
+<script src="data.js" defer></script>
+<script src="main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="home" href="#top" aria-label="Loopwright, back to the top">
+    <svg class="loop" viewBox="0 0 1152 520" aria-hidden="true" focusable="false"><defs><linearGradient id="loop-gradient-top" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="1136" y2="0"><stop offset="0" stop-color="#05F7FF"/><stop offset=".5" stop-color="#01BFFF"/><stop offset="1" stop-color="#004AF0"/></linearGradient></defs><path d="M573.0 265.0C556.2 283.2 540.1 301.7 522.7 319.5C505.3 337.2 487.9 355.2 468.6 371.6C449.3 387.9 429.3 404.3 407.0 417.6C384.6 430.8 360.6 443.8 334.7 451.2C308.9 458.6 280.0 464.5 251.8 462.2C223.6 459.9 191.7 453.0 165.6 437.3C139.6 421.6 111.7 396.7 95.4 368.0C79.0 339.3 67.5 299.3 67.5 265.0C67.5 230.7 79.0 190.7 95.4 162.0C111.7 133.3 139.6 108.4 165.6 92.7C191.7 77.0 223.6 70.1 251.8 67.8C280.0 65.5 308.9 71.4 334.7 78.8C360.6 86.2 384.6 99.2 407.0 112.4C429.3 125.7 449.3 142.1 468.6 158.4C487.9 174.8 505.3 192.8 522.7 210.5C540.1 228.3 556.2 246.8 573.0 265.0C589.8 283.2 605.9 301.7 623.3 319.5C640.7 337.2 658.1 355.2 677.4 371.6C696.7 387.9 716.7 404.3 739.0 417.6C761.4 430.8 785.4 443.8 811.3 451.2C837.1 458.6 866.0 464.5 894.2 462.2C922.4 459.9 954.3 453.0 980.4 437.3C1006.4 421.6 1034.3 396.7 1050.6 368.0C1067.0 339.3 1078.5 299.3 1078.5 265.0C1078.5 230.7 1067.0 190.7 1050.6 162.0C1034.3 133.3 1006.4 108.4 980.4 92.7C954.3 77.0 922.4 70.1 894.2 67.8C866.0 65.5 837.1 71.4 811.3 78.8C785.4 86.2 761.4 99.2 739.0 112.4C716.7 125.7 696.7 142.1 677.4 158.4C658.1 174.8 640.7 192.8 623.3 210.5C605.9 228.3 589.8 246.8 573.0 265.0Z" stroke="url(#loop-gradient-top)" stroke-width="115"/></svg>
+  </a>
+  <nav aria-label="Sections">
+    <a class="section-link" href="#how">How it works</a>
+    <a class="section-link" href="#results">Results</a>
+    <a href="#run">Run it</a>
+    <a href="https://github.com/naithanitanishka20/Loopwright">GitHub</a>
+  </nav>
+</header>
+
+<main id="main">
+
+<section class="hero" id="top">
+  <div class="hero-text">
+    <h1 class="wordmark"><span class="sr">Loopwright</span><span class="wm" aria-hidden="true">L<svg class="loop" viewBox="0 0 1152 520" focusable="false"><defs><linearGradient id="loop-gradient-hero" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="1136" y2="0"><stop offset="0" stop-color="#05F7FF"/><stop offset=".5" stop-color="#01BFFF"/><stop offset="1" stop-color="#004AF0"/></linearGradient></defs><path d="M573.0 265.0C556.2 283.2 540.1 301.7 522.7 319.5C505.3 337.2 487.9 355.2 468.6 371.6C449.3 387.9 429.3 404.3 407.0 417.6C384.6 430.8 360.6 443.8 334.7 451.2C308.9 458.6 280.0 464.5 251.8 462.2C223.6 459.9 191.7 453.0 165.6 437.3C139.6 421.6 111.7 396.7 95.4 368.0C79.0 339.3 67.5 299.3 67.5 265.0C67.5 230.7 79.0 190.7 95.4 162.0C111.7 133.3 139.6 108.4 165.6 92.7C191.7 77.0 223.6 70.1 251.8 67.8C280.0 65.5 308.9 71.4 334.7 78.8C360.6 86.2 384.6 99.2 407.0 112.4C429.3 125.7 449.3 142.1 468.6 158.4C487.9 174.8 505.3 192.8 522.7 210.5C540.1 228.3 556.2 246.8 573.0 265.0C589.8 283.2 605.9 301.7 623.3 319.5C640.7 337.2 658.1 355.2 677.4 371.6C696.7 387.9 716.7 404.3 739.0 417.6C761.4 430.8 785.4 443.8 811.3 451.2C837.1 458.6 866.0 464.5 894.2 462.2C922.4 459.9 954.3 453.0 980.4 437.3C1006.4 421.6 1034.3 396.7 1050.6 368.0C1067.0 339.3 1078.5 299.3 1078.5 265.0C1078.5 230.7 1067.0 190.7 1050.6 162.0C1034.3 133.3 1006.4 108.4 980.4 92.7C954.3 77.0 922.4 70.1 894.2 67.8C866.0 65.5 837.1 71.4 811.3 78.8C785.4 86.2 761.4 99.2 739.0 112.4C716.7 125.7 696.7 142.1 677.4 158.4C658.1 174.8 640.7 192.8 623.3 210.5C605.9 228.3 589.8 246.8 573.0 265.0Z" pathLength="1" stroke="url(#loop-gradient-hero)" stroke-width="115"/></svg>pwright</span></h1>
+    <p class="tagline">The fewest hubs, then the least cable.</p>
+    <p class="lede">Loopwright plans the network cabling of a home from its floor plan. It groups the rooms into zones, puts one hub in each and runs a single closed ring of cable from that hub through every room in its zone, along the walls and through the doors.</p>
+    <p class="actions"><a class="button primary" href="#run">Run it on your machine</a><a class="button" href="#results">See the results</a></p>
+  </div>
+  <figure class="hero-plan">
+    <div class="drawing" data-drawing="hero"><img src="assets/hero.svg" width="900" height="736" alt="Plan 2916 with two hubs: one ring runs through the kitchen, two bedrooms and the living room, a short one serves the third bedroom."></div>
+    <figcaption>
+      <span>Plan <span data-fig="hero.plan">2916</span> from ResPlan. A greedy grouping needs <span data-fig="hero.greedy">3</span> hubs; Loopwright finds <span data-fig="hero.hubs">2</span>, the lower bound, with <span data-fig="hero.length_m">42.6</span> m of cable.</span>
+      <button class="text-button replay" type="button">Draw it again</button>
+    </figcaption>
+  </figure>
+</section>
+
+<section class="section" id="rules" aria-labelledby="rules-title">
+  <h2 id="rules-title">The rules every design follows</h2>
+  <p>Each design has to meet all of these. Within them, Loopwright uses as few hubs and as little cable as it can.</p>
+  <dl class="spec">
+    <div><dt>Rooms</dt><dd>Every living room, bedroom, kitchen and storage room gets one node. Bathrooms and stairs get none.</dd></div>
+    <div><dt>Zones</dt><dd>Each hub serves one zone of at most 100 m² and five rooms, joined by doors or open passages.</dd></div>
+    <div><dt>Rings</dt><dd>Each hub runs one closed ring through its rooms and back, with no branches.</dd></div>
+    <div><dt>Cable</dt><dd>Runs only horizontally and vertically, changes rooms only through doors and openings, never crosses a wall or a window and stays inside the home.</dd></div>
+    <div><dt>Ranking</dt><dd>Fewest hubs first. Between designs with as many hubs, the lowest J wins: cable length + 0.3 × bends + 3 × crossings + 2 × overlap, with length and overlap in metres.</dd></div>
+  </dl>
+</section>
+
+<section class="section" id="how" aria-labelledby="how-title">
+  <h2 id="how-title">How it works</h2>
+  <ol class="steps">
+    <li><h3>Read the plan</h3><p>Rooms, walls, doors and windows come from the ResPlan geometry, healed so every wall closes and every door sits in a wall.</p></li>
+    <li><h3>Place a node in each room</h3><p>Each node goes by its room's doors and at least half a metre from any wall, so cable reaches it on short legs.</p></li>
+    <li><h3>Find the fewest hubs</h3><p>An exact search over every way of grouping the rooms into zones finds the smallest number of hubs the rules allow.</p></li>
+    <li><h3>Keep the cheapest grouping</h3><p>Among the groupings with that many hubs, the one whose rings need the least cable wins.</p></li>
+    <li><h3>Route every ring</h3><p>Each ring runs on a grid along the walls and through the doors, with every bend counted. Later legs keep out of lanes cable already uses.</p></li>
+    <li><h3>Check the result</h3><p>A separate validator rebuilds the plan from the raw data and checks 17 rules, V00 to V16. It imports nothing from the solver.</p></li>
+  </ol>
+</section>
+
+<section class="section" id="doors" aria-labelledby="doors-title">
+  <h2 id="doors-title">One door rule can double the hubs</h2>
+  <p>In plan 16448 the living room and one bedroom already make a 93 m² zone. The kitchen and the other two bedrooms open only onto the living room. If a zone must be joined by its own doors, each of them needs a hub of its own. Let a zone's cable pass through another zone's room and two hubs are enough, the lower bound, though the rings then need three times the cable.</p>
+  <p>Loopwright follows the own-doors rule unless told otherwise, and the app switches between the two.</p>
+  <div class="switch" role="group" aria-label="Door rule">
+    <button type="button" aria-pressed="true" data-show="rule_strict">Own doors only</button>
+    <button type="button" aria-pressed="false" data-show="rule_through">Through other rooms</button>
+  </div>
+  <figure class="compare">
+    <div class="stack">
+      <div class="drawing on" data-drawing="rule_strict"><img src="assets/rule_strict.svg" width="900" height="441" alt="Plan 16448 under the own-doors rule: four hubs."></div>
+      <div class="drawing" data-drawing="rule_through"><img src="assets/rule_through.svg" width="900" height="441" alt="Plan 16448 with cable allowed through other rooms: two hubs."></div>
+    </div>
+    <dl class="figures" data-figures="rule_strict" aria-live="polite">
+      <div><dt>Hubs</dt><dd data-key="hubs">4</dd></div>
+      <div><dt>Lower bound</dt><dd data-key="lower_bound">2</dd></div>
+      <div><dt>Cable</dt><dd><span data-key="length_m">11.2</span> m</dd></div>
+      <div><dt>J</dt><dd data-key="J">18.3</dd></div>
+    </dl>
+  </figure>
+</section>
+
+<section class="section" id="lanes" aria-labelledby="lanes-title">
+  <h2 id="lanes-title">Nodes by the doors, legs in their own lanes</h2>
+  <p>Plan 11282 needs two hubs either way. Earlier versions put each node in the middle of its room and let legs run over each other. Now nodes sit beside the doors and every leg keeps a lane of its own. Drag across the drawing to compare.</p>
+  <div class="wipe">
+    <div class="drawing" data-drawing="after"><img src="assets/after.svg" width="900" height="736" alt="Plan 11282 after: nodes beside the doors, no cable doubled up."></div>
+    <div class="drawing before" data-drawing="before"><img src="assets/before.svg" width="900" height="736" alt="Plan 11282 before: nodes in the middle of each room, legs running over each other."></div>
+    <span class="handle" aria-hidden="true"></span>
+    <span class="tag left" aria-hidden="true">Before</span>
+    <span class="tag right" aria-hidden="true">After</span>
+    <input type="range" min="0" max="100" value="50" step="1" aria-label="Compare before and after: 0 shows after, 100 shows before">
+  </div>
+  <div class="pair">
+    <div>
+      <h3>Before</h3>
+      <dl class="figures" data-figures="before">
+        <div><dt>Cable</dt><dd><span data-key="length_m">23.3</span> m</dd></div>
+        <div><dt>Doubled up</dt><dd><span data-key="overlap_m">10.7</span> m</dd></div>
+        <div><dt>J</dt><dd data-key="J">47.1</dd></div>
+      </dl>
+    </div>
+    <div>
+      <h3>After</h3>
+      <dl class="figures" data-figures="after">
+        <div><dt>Cable</dt><dd><span data-key="length_m">15.8</span> m</dd></div>
+        <div><dt>Doubled up</dt><dd><span data-key="overlap_m">0.0</span> m</dd></div>
+        <div><dt>J</dt><dd data-key="J">19.4</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="results" aria-labelledby="results-title">
+  <h2 id="results-title">Every plan in ResPlan, all <span data-num="plans">17,000</span></h2>
+  <p>Each one solved, then checked by the validator. The figures come from the batch records in the repository.</p>
+  <dl class="spec results-list">
+    <div><dt>Valid</dt><dd><strong><span data-num="valid">16,556</span> of <span data-num="feasible">16,556</span></strong><span class="note">feasible plans pass every rule. The other <span data-num="infeasible">444</span> each have a room over 100 m², which no zone can hold, and are reported as infeasible.</span></dd></div>
+    <div><dt>Hubs</dt><dd><strong data-num="hubs">29,377</strong><span class="note">against a lower bound of <span data-num="lower_bound">23,893</span>, where a greedy grouping needs <span data-num="greedy">31,046</span>. <span data-num="at_bound">12,906</span> plans meet the bound exactly; on the rest, doors or room sizes rule it out, and the app names the reason.</span></dd></div>
+    <div><dt>Cable</dt><dd><strong><span data-num="length_m">323,483</span> m</strong><span class="note">in all, for a total J of <span data-num="J">446,668</span>, or <span data-num="J_per_plan">27.0</span> per plan.</span></dd></div>
+    <div><dt>Time</dt><dd><strong><span data-num="p50_s">0.38</span> s</strong><span class="note">per plan at the median and <span data-num="p95_s">1.26</span> s at the 95th percentile, in one process on a laptop.</span></dd></div>
+  </dl>
+  <div class="charts">
+    <figure class="chart" data-chart="extra_hubs"><img src="assets/extra-hubs.svg" width="720" height="420" alt="Bar chart of how many hubs each plan needs above its lower bound, exact search against a greedy grouping."></figure>
+    <figure class="chart" data-chart="runtime"><img src="assets/runtime.svg" width="720" height="380" alt="Share of plans solved within each time, one process."></figure>
+  </div>
+</section>
+
+<section class="section" id="app" aria-labelledby="app-title">
+  <h2 id="app-title">Every plan, open in the app</h2>
+  <p><code>loopwright serve</code> opens a local app in the browser. Nothing leaves your machine.</p>
+  <div class="app">
+    <figure>
+      <img src="assets/app.webp" width="1600" height="978" alt="The Loopwright app with plan 2916 solved: the plan and its rings in the middle, why this many hubs and the validator on the right.">
+      <figcaption>Plan 2916 in the app, every rule passing.</figcaption>
+    </figure>
+    <ul class="features">
+      <li><strong>Any ResPlan plan</strong> by its number, under either door rule.</li>
+      <li><strong>Your own plan</strong> from a PNG, JPEG, PDF or DXF drawing, or drawn on a grid.</li>
+      <li><strong>Edits</strong> to doors and room types, solved and checked again after each change.</li>
+      <li><strong>Cut a leg</strong> of any ring and see which way each room is still fed.</li>
+      <li><strong>Why this many hubs?</strong> names the rule that forces each extra hub.</li>
+      <li><strong>Installer pack</strong> with the cable schedule, bill of materials and commissioning sheet.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="run" aria-labelledby="run-title" data-os-current="windows">
+  <h2 id="run-title">Run it on your machine</h2>
+  <p>You need Python 3.11 or later. The plans download once, about 100 MB, and are checked against a pinned SHA-256.</p>
+  <div class="switch" role="group" aria-label="Operating system">
+    <button type="button" aria-pressed="true" data-os-pick="windows">Windows</button>
+    <button type="button" aria-pressed="false" data-os-pick="unix">macOS or Linux</button>
+  </div>
+  <div class="code">
+    <div class="code-head"><span>Install and open the app</span><button class="copy" type="button">Copy</button></div>
+    <pre><code data-os="windows">git clone https://github.com/naithanitanishka20/Loopwright.git
+cd Loopwright
+python -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev,import,serve]"
+.venv\Scripts\python scripts\fetch_resplan.py
+.venv\Scripts\loopwright serve</code><code data-os="unix">git clone https://github.com/naithanitanishka20/Loopwright.git
+cd Loopwright
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev,import,serve]"
+.venv/bin/python scripts/fetch_resplan.py
+.venv/bin/loopwright serve</code></pre>
+  </div>
+  <p class="after-code">Then open <a href="http://127.0.0.1:8000/">127.0.0.1:8000</a> in your browser.</p>
+  <div class="code">
+    <div class="code-head"><span>Solve one plan and check it</span><button class="copy" type="button">Copy</button></div>
+    <pre><code data-os="windows">.venv\Scripts\loopwright solve --id 2916 --out out\
+.venv\Scripts\loopwright validate out\2916.json --id 2916</code><code data-os="unix">.venv/bin/loopwright solve --id 2916 --out out/
+.venv/bin/loopwright validate out/2916.json --id 2916</code></pre>
+  </div>
+  <p class="after-code">The first command writes the design as JSON, a drawing, a viewer page and an installer pack; the second runs every check.</p>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p>Floor plans from the <a href="https://github.com/m-agour/ResPlan">ResPlan dataset</a> (Abouagour and Garyfallidis, 2025), CC BY 4.0. Set in Outfit, under the SIL Open Font License.</p>
+  <p><a href="https://github.com/naithanitanishka20/Loopwright">Loopwright on GitHub</a>, version <span data-num="version">0.8.0</span>.</p>
+</footer>
+<p class="sr" role="status" id="status"></p>
+</body>
+</html>
