@@ -23,7 +23,7 @@ MAX_GRID_VERTICES = 1_000_000
 
 
 class GridRouter:
-    def __init__(self, model, stops, settings, spacing_m=0.2, avoid=None):
+    def __init__(self, model, stops, settings, spacing_m=0.2, avoid=None, exclude=None):
         self.s = model.m_per_unit
         layers = model.layers
         blocked = []
@@ -36,6 +36,8 @@ class GridRouter:
                 blocked.append(g)
         if avoid is not None and not avoid.is_empty:
             blocked.append(avoid)  # places the validator rejected in an earlier attempt
+        if exclude is not None and not exclude.is_empty:
+            blocked.append(exclude)  # rooms cable may cross only as a last resort
         region = layers["inner"]
         if blocked:
             region = region.difference(unary_union(blocked))

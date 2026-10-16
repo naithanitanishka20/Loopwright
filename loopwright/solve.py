@@ -9,7 +9,7 @@ from loopwright.config import DEFAULT
 from loopwright.geometry.nodes import place_nodes
 from loopwright.geometry.walkable import piece_index, pieces, walkable_hub, walkable_node, walkable_region
 from loopwright.geometry.portals import connector_ids, door_graph, is_connected
-from loopwright.geometry.spaces import build_model
+from loopwright.geometry.spaces import OTHER_TYPES, build_model
 from loopwright.optimize.baseline import greedy_zones
 from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs
 from loopwright.routing.grid import INF, GridRouter, best_cycle, best_ring_order
@@ -172,23 +172,36 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
         hub_pos[f"H{zi}"] = (main_room, walkable_hub(model.space(main_room).geom, nodes_at[main_room], region, s,
                                                      settings.min_hub_node_m))
     stops = {**{rid: pos for rid, pos in nodes_at.items()}, **{h: pos for h, (_, pos) in hub_pos.items()}}
-    router = GridRouter(model, stops, settings, avoid=avoid)
+    # Bathrooms and stairs are blocked unless no route avoids them (Eval-01 meeting), and narrow
+    # doors can close under the clearance, so each zone tries these routers in turn.
+    excluded = unary_union([sp.geom for sp in model.spaces if sp.type in OTHER_TYPES])
+    tries = [(False, False), (True, False)] + ([] if excluded.is_empty else [(False, True), (True, True)])
+    routers = {}
+
+    def router_for(fine, through_excluded):
+        if (fine, through_excluded) not in routers:
+            cfg = settings.with_overrides(clearance_m=0.0) if fine else settings
+            routers[fine, through_excluded] = GridRouter(
+                model, stops, cfg, spacing_m=0.1 if fine else 0.2, avoid=avoid,
+                exclude=None if through_excluded or excluded.is_empty else excluded)
+        return routers[fine, through_excluded]
 
     counter = 1
     hubs, nodes, rings = [], [], []
-    fallback = None
     unreachable = set()
     for zi, zone in enumerate(zones, start=1):
         hub_id = f"H{zi}"
         main_room, hpos = hub_pos[hub_id]
-        zrouter = router
         stops_here = [hub_id] + zone
-        if any(router.cost(a, b) == INF for a in stops_here for b in stops_here if a != b):
-            # Narrow doors can close under the clearance; retry this zone on a finer grid without it.
-            if fallback is None:
-                fallback = GridRouter(model, stops, settings.with_overrides(clearance_m=0.0), spacing_m=0.1, avoid=avoid)
-            zrouter = fallback
+        for fine, through_excluded in tries:
+            zrouter = router_for(fine, through_excluded)
+            if all(zrouter.cost(a, b) < INF for a in stops_here for b in stops_here if a != b):
+                break
+        if fine:
             diagnostics.append({"code": "ROUTER_FALLBACK", "ring": hub_id})
+        if through_excluded:
+            diagnostics.append({"code": "THROUGH_EXCLUDED", "ring": hub_id,
+                                "reason": "no route avoids the bathrooms and stairs"})
         unreachable |= {frozenset((a, b)) for i, a in enumerate(zone) for b in zone[i + 1:] if zrouter.cost(a, b) == INF}
         min_units = (settings.min_hub_node_m - settings.tolerance_m) / s
         on_ring = _hub_on_ring(zrouter, zone, model, nodes_at, min_units) if len(zone) >= 2 else None
