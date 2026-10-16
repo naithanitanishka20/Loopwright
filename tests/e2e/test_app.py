@@ -95,6 +95,23 @@ def longest_leg(page, ring):
         return best; }""", ring)
 
 
+@pytest.mark.parametrize("link, check", [
+    ("#upload", ("#tab-upload", "aria-selected")),
+    ("#dxf", ("#tab-upload", "aria-selected")),
+    ("#draw", ("#tab-draw", "aria-selected")),
+    ("#cut", ("#mode-cut", "aria-pressed")),
+    ("#edit", ("#mode-edit", "aria-pressed")),
+])
+def test_a_link_opens_the_app_in_that_mode(browser, app_url, link, check):
+    page = browser.new_page(viewport={"width": 1400, "height": 1000})
+    page.goto(app_url + link)
+    page.wait_for_load_state("networkidle")
+    selector, attribute = check
+    page.wait_for_function("([s, a]) => document.querySelector(s).getAttribute(a) === 'true'", arg=[selector, attribute],
+                           timeout=5000)
+    page.close()
+
+
 def test_only_the_chosen_source_pane_shows(page):
     visible = lambda: [p for p in ("id", "upload", "draw") if page.locator(f"#pane-{p}").is_visible()]
     assert visible() == ["draw"]

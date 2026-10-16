@@ -358,7 +358,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
   function loadById() {
     var id = $("plan-id").value.trim();
     if (!id) return status("Type a plan id.", true);
-    startFrom({ plan_id: /^[0-9]+$/.test(id) ? Number(id) : id });
+    return startFrom({ plan_id: /^[0-9]+$/.test(id) ? Number(id) : id });
   }
   function importFile() {
     var f = $("file").files[0];
@@ -479,6 +479,17 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     document.body.appendChild(a); a.click(); a.remove();
   }
 
+  // ---------- links: #edit, #cut, #installer, #draw and #upload (or #dxf) open the app in that mode ----------
+  function openFromLink(available) {
+    var want = location.hash.slice(1);
+    if (want === "draw" || want === "upload" || want === "dxf") return setTab(want === "draw" ? "draw" : "upload");
+    if (["edit", "cut", "installer"].indexOf(want) < 0) return;
+    if (want !== "installer") setMode(want);
+    if (!available) return;
+    var loading = loadById();
+    if (want === "installer" && loading) loading.then(function () { $("installer").focus(); });
+  }
+
   // ---------- wiring ----------
   $("tab-id").addEventListener("click", function () { setTab("id"); });
   $("tab-upload").addEventListener("click", function () { setTab("upload"); });
@@ -511,7 +522,8 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
       $("load-id").disabled = true;
       setTab("draw");
     }
-  }).catch(function () { setTab("draw"); });
+    openFromLink(p.available);
+  }).catch(function () { setTab("draw"); openFromLink(false); });
 })();
 </script>
 </body></html>
