@@ -72,6 +72,9 @@ class Settings:
     # Q17, Eval-01 meeting: eligible rooms under this area get no node (rooms too narrow
     # for a node node_wall_m from the walls get none either)
     min_room_m2: float = 2.0
+    # Solver option (not a rule reading): re-route legs so they take a separate lane rather than
+    # run on top of cable already placed, when that lowers J
+    separate_lanes: bool = True
     # Geometry constants (not rule readings)
     clearance_m: float = 0.10
     sliver_m2: float = 0.5
@@ -109,6 +112,7 @@ class Settings:
         _choice("infeasible_output", self.infeasible_output, INFEASIBLE_OUTPUTS)
         _finite_number("time_limit_s", self.time_limit_s, strictly_positive=True)
         _choice("area_source", self.area_source, AREA_SOURCES)
+        _boolean("separate_lanes", self.separate_lanes)
         _finite_number("clearance_m", self.clearance_m, 0)
         _finite_number("sliver_m2", self.sliver_m2, 0)
 

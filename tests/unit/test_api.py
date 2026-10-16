@@ -60,7 +60,7 @@ def test_validate_catches_a_leg_bent_diagonally(client):
     design = client.post("/api/solve", json={"source": {"sketch": SKETCH}}).json()["design"]
     bent = copy.deepcopy(design)
     path = bent["rings"][0]["legs"][1]["path"]
-    path[-1] = [path[-1][0] + 0.7, path[-1][1]]
+    path[-1] = [path[-1][0] + 0.7, path[-1][1] + 0.7]  # diagonal whichever way the segment ran
     r = client.post("/api/validate", json={"source": {"sketch": SKETCH}, "design": bent})
     failed = [c["id"] for c in r.json()["checks"] if c["pass"] is False]
     assert r.json()["valid"] is False and "V14" in failed

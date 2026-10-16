@@ -9,8 +9,8 @@ def square(x0, y0, x1, y1):
 
 
 def ring_of(rooms, doors):
-    # Nodes at room centres (rule "pole"), so the ring's shape is easy to work out by hand.
-    out, _ = solve(build_plan(rooms, doors), DEFAULT.with_overrides(node_rule="pole"))
+    # Nodes at room centres (rule "pole") and no lane changes, so the ring is easy to work out by hand.
+    out, _ = solve(build_plan(rooms, doors), DEFAULT.with_overrides(node_rule="pole", separate_lanes=False))
     assert out["validation"]["valid"], [c for c in out["validation"]["checks"] if c["pass"] is False]
     return out["rings"][0]
 

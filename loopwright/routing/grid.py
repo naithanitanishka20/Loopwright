@@ -60,6 +60,7 @@ class GridRouter:
         ok = shapely.contains_xy(self.region, X, Y)
         xi = {x: i for i, x in enumerate(self.xs)}
         yi = {y: j for j, y in enumerate(self.ys)}
+        self.xi, self.yi = xi, yi
         self.stop_at = {}
         for name, (x, y) in stops.items():
             i, j = xi[round(x, 6)], yi[round(y, 6)]
@@ -129,6 +130,66 @@ class GridRouter:
         self.cache[src] = (dist, parent)
         return self.cache[src]
 
+    def route_avoiding(self, start, goal, used, weight, crossing=0.0):
+        """Cheapest path between two grid points when each edge in `used` costs `weight` times its
+        length on top (what J charges for overlap) and meeting a used line anywhere but the goal
+        costs `crossing` (slide 7: any point where two cables meet), or None. Not cached."""
+        xs, ys, hok, vok, bend = self.xs, self.ys, self.hok, self.vok, self.bend
+        nx, ny = len(xs), len(ys)
+        try:
+            i0, j0 = self.xi[round(start[0], 6)], self.yi[round(start[1], 6)]
+            i1, j1 = self.xi[round(goal[0], 6)], self.yi[round(goal[1], 6)]
+        except KeyError:
+            return None
+        goal_v = i1 * ny + j1
+        # Vertices on a used line: arriving there off that line is a meeting of two cables.
+        touched = set()
+        for k, i, j in used:
+            touched.add(i * ny + j)
+            touched.add((i + 1) * ny + j if k == "h" else i * ny + j + 1)
+        dist = [INF] * (nx * ny * 5)
+        parent = [-1] * (nx * ny * 5)
+        first = (i0 * ny + j0) * 5 + START
+        dist[first] = 0.0
+        heap = [(0.0, first)]
+        found = None
+        while heap:
+            d, state = heapq.heappop(heap)
+            if d > dist[state]:
+                continue
+            v, h = divmod(state, 5)
+            if v == goal_v:
+                found = state
+                break
+            i, j = divmod(v, ny)
+            moves = []
+            if i + 1 < nx and hok[i][j]:
+                moves.append((v + ny, 0, xs[i + 1] - xs[i], ("h", i, j)))
+            if i > 0 and hok[i - 1][j]:
+                moves.append((v - ny, 1, xs[i] - xs[i - 1], ("h", i - 1, j)))
+            if j + 1 < ny and vok[i][j]:
+                moves.append((v + 1, 2, ys[j + 1] - ys[j], ("v", i, j)))
+            if j > 0 and vok[i][j - 1]:
+                moves.append((v - 1, 3, ys[j] - ys[j - 1], ("v", i, j - 1)))
+            for nv, nh, step, edge in moves:
+                nd = d + step * (1 + weight if edge in used else 1) + (bend if h != START and h != nh else 0.0)
+                if crossing and nv in touched and nv != goal_v and edge not in used:
+                    nd += crossing
+                ns = nv * 5 + nh
+                if nd < dist[ns]:
+                    dist[ns] = nd
+                    parent[ns] = state
+                    heapq.heappush(heap, (nd, ns))
+        if found is None:
+            return None
+        pts, state = [], found
+        while state != -1:
+            vv = state // 5
+            pts.append((xs[vv // ny], ys[vv % ny]))
+            state = parent[state]
+        pts.reverse()
+        return _merge_collinear(pts)
+
     def cost(self, a, b):
         """Cheapest length + bends from stop a to stop b, in metres (inf if unreachable)."""
         if a == b:
@@ -172,6 +233,22 @@ class GridRouter:
             if seg + 1 < len(pts) - 1:
                 out.append((b[0], b[1], seg, True))
         return out
+
+
+def path_edges(router, path):
+    """The grid edges a path runs along, as ("h", i, j) and ("v", i, j); points off the grid are skipped."""
+    edges = set()
+    for a, b in zip(path, path[1:]):
+        try:
+            ia, ja = router.xi[round(a[0], 6)], router.yi[round(a[1], 6)]
+            ib, jb = router.xi[round(b[0], 6)], router.yi[round(b[1], 6)]
+        except KeyError:
+            continue
+        if ja == jb:
+            edges.update(("h", i, ja) for i in range(min(ia, ib), max(ia, ib)))
+        elif ia == ib:
+            edges.update(("v", ia, j) for j in range(min(ja, jb), max(ja, jb)))
+    return edges
 
 
 def _merge_collinear(pts):

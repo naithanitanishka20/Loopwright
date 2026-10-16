@@ -12,10 +12,10 @@ from loopwright.geometry.portals import connector_ids, door_graph, is_connected
 from loopwright.geometry.spaces import OTHER_TYPES, build_model
 from loopwright.optimize.baseline import greedy_zones
 from loopwright.optimize.zones import feasible_zones, lower_bound, members, min_hubs_cheapest
-from loopwright.routing.grid import INF, GridRouter, best_cycle, best_ring_order
+from loopwright.routing.grid import INF, GridRouter, best_cycle, best_ring_order, path_edges
 from loopwright.routing.straight import l_leg
 from loopwright.validate.rules import validate
-from loopwright.validate.score import leg_length_and_bends, reviewer_lines, ring_metrics, score
+from loopwright.validate.score import interactions, leg_length_and_bends, reviewer_lines, ring_metrics, score
 
 
 MAX_REPAIRS = 3
@@ -152,6 +152,42 @@ def solve(plan, settings=DEFAULT):
     return out, model
 
 
+def _cable_j(rings, s, settings):
+    """J of these rings alone, unrounded."""
+    length = bends = 0
+    for r in rings:
+        l, b = ring_metrics(r, s, settings.bend_at_node, settings.tolerance_m)
+        length, bends = length + l, bends + b
+    crossings, overlap = interactions(rings, s, settings.tolerance_m, settings.count_self_crossings)
+    return length + settings.bend_m * bends + settings.crossing_m * crossings + settings.overlap_factor * overlap
+
+
+def _separate_lanes(rings, routers, settings, s):
+    """Re-route each ring's legs so a stretch already covered costs what J charges for overlap,
+    which moves a leg to a parallel lane where that is cheaper. A ring keeps its new legs only
+    if J goes down."""
+    covered, placed = {}, []
+    for ring in rings:
+        router = routers[ring["hub"]]
+        cover = set(covered.get(id(router), ()))
+        paths = []
+        for leg in ring["legs"]:
+            p = router.route_avoiding(tuple(leg["path"][0]), tuple(leg["path"][-1]), cover,
+                                      settings.overlap_factor, settings.crossing_m)
+            paths.append(p or leg["path"])
+            cover |= path_edges(router, paths[-1])
+        candidate = {**ring, "legs": [{**leg, "path": p} for leg, p in zip(ring["legs"], paths)]}
+        if _cable_j(placed + [candidate], s, settings) < _cable_j(placed + [ring], s, settings) - 1e-9:
+            for leg, p in zip(ring["legs"], paths):
+                length, bends, _, _ = leg_length_and_bends([tuple(q) for q in p])
+                leg.update(path=p, length_m=round(length * s, 2), bends=bends)
+            ring_len, ring_bends = ring_metrics(ring, s, settings.bend_at_node, settings.tolerance_m)
+            ring["length_m"], ring["bends"] = round(ring_len, 2), ring_bends
+        placed.append(ring)
+        done = set().union(*(path_edges(router, leg["path"]) for leg in ring["legs"]))
+        covered[id(router)] = covered.get(id(router), set()) | done
+
+
 def _excluded(model):
     """Bathrooms and stairs, less any part an eligible room's outline also covers (labels can overlap)."""
     other = unary_union([sp.geom for sp in model.spaces if sp.type in OTHER_TYPES])
@@ -220,6 +256,7 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
     counter = 1
     hubs, nodes, rings = [], [], []
     unreachable = set()
+    ring_router = {}
     for zi, zone in enumerate(zones, start=1):
         hub_id = f"H{zi}"
         main_room, hpos = hub_pos[hub_id]
@@ -265,9 +302,13 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
             legs.append({"n": i, "from": sequence[i - 1], "to": sequence[i], "path": path,
                          "portals": [], "length_m": round(length * s, 2), "bends": bends})
         ring = {"hub": hub_id, "sequence": sequence, "legs": legs}
+        ring_router[hub_id] = zrouter
         ring_len, ring_bends = ring_metrics(ring, s, settings.bend_at_node)
         ring["length_m"], ring["bends"] = round(ring_len, 2), ring_bends
         rings.append(ring)
+
+    if settings.separate_lanes:
+        _separate_lanes(rings, ring_router, settings, s)
 
     out = {
         "schema": SCHEMA,
