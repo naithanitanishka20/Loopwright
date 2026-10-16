@@ -4,23 +4,61 @@ inner minus walls (doors stay open), windows and external areas. Solver,
 router and zoning all use this one definition so they can't disagree about
 what is reachable.
 """
-from shapely.geometry import Point, Polygon
+import math
+
+from shapely.geometry import MultiPoint, Point, Polygon
 from shapely.ops import polylabel, unary_union
 
 from loopwright.geometry.heal import flat
 
 EXTERNAL = ("window", "balcony", "garden", "pool", "parking")
+# A door opens the wall it is drawn in from face to face (assumptions Q18). ResPlan draws some doors shallower
+# than their wall (plan 4755: 3 cm short), and a door drawn to x = 7.699999999999999 in a wall drawn to 7.7 leaves
+# a sliver, so wall within DOOR_REACH wall depths of a door's long side is doorway too when it runs at least
+# DOOR_SPAN of the door's width. A wall that only meets the door's side is shorter than that and stays.
+DOOR_REACH = 0.5
+DOOR_SPAN = 0.9
+
+
+def door_cut(door, walls, reach):
+    """The door, and the strips of wall left in front of it: within reach of a long side, along its whole width."""
+    rect = door.minimum_rotated_rectangle
+    if not isinstance(rect, Polygon):
+        return door
+    c = list(rect.exterior.coords)[:4]
+    a, b = (c[1][0] - c[0][0], c[1][1] - c[0][1]), (c[2][0] - c[1][0], c[2][1] - c[1][1])
+    across, along = (a, b) if math.hypot(*a) <= math.hypot(*b) else (b, a)
+    depth, width = math.hypot(*across), math.hypot(*along)
+    if depth == 0:
+        return door
+    dx, dy = across[0] / depth * reach, across[1] / depth * reach
+    front = MultiPoint([(x + k * dx, y + k * dy) for x, y in c for k in (-1, 1)]).convex_hull
+    ux, uy = along[0] / width, along[1] / width
+    strips = []
+    for piece in flat(walls.intersection(front).difference(door)):
+        if isinstance(piece, Polygon):
+            t = [x * ux + y * uy for x, y in piece.exterior.coords]
+            if max(t) - min(t) >= DOOR_SPAN * width:
+                strips.append(piece)
+    return unary_union([door, *strips])
+
+
+def open_walls(layers, wall_depth):
+    """The walls with every door cut through them, or None for a plan without walls."""
+    walls, doors = layers.get("wall"), layers.get("door")
+    if walls is None or walls.is_empty:
+        return None
+    if doors is None or doors.is_empty:
+        return walls
+    cuts = [door_cut(d, walls, DOOR_REACH * wall_depth) for d in flat(doors) if isinstance(d, Polygon)]
+    return walls.difference(unary_union(cuts)) if cuts else walls
 
 
 def walkable_region(model):
     layers = model.layers
-    blocked = []
-    walls, doors = layers.get("wall"), layers.get("door")
-    if walls is not None and not walls.is_empty:
-        blocked.append(walls.difference(doors) if doors is not None and not doors.is_empty else walls)
-    blocked += [layers[k] for k in EXTERNAL if layers.get(k) is not None and not layers[k].is_empty]
-    region = layers["inner"]
-    return region.difference(unary_union(blocked)) if blocked else region
+    blocked = [g for g in [open_walls(layers, model.wall_depth)] + [layers.get(k) for k in EXTERNAL]
+               if g is not None and not g.is_empty]
+    return layers["inner"].difference(unary_union(blocked)) if blocked else layers["inner"]
 
 
 def pieces(region):

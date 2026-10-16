@@ -16,6 +16,8 @@ import numpy as np
 import shapely
 from shapely.ops import unary_union
 
+from loopwright.geometry.walkable import walkable_region
+
 INF = float("inf")
 START = 4
 # About 200 m by 200 m at the 0.2 m grid: far beyond any home, small enough to route.
@@ -27,18 +29,11 @@ class GridRouter:
         self.s = model.m_per_unit
         layers = model.layers
         blocked = []
-        walls, doors = layers.get("wall"), layers.get("door")
-        if walls is not None and not walls.is_empty:
-            blocked.append(walls.difference(doors) if doors is not None and not doors.is_empty else walls)
-        for k in ("window", "balcony", "garden", "pool", "parking"):
-            g = layers.get(k)
-            if g is not None and not g.is_empty:
-                blocked.append(g)
         if avoid is not None and not avoid.is_empty:
             blocked.append(avoid)  # places the validator rejected in an earlier attempt
         if exclude is not None and not exclude.is_empty:
             blocked.append(exclude)  # rooms cable may cross only as a last resort
-        region = layers["inner"]
+        region = walkable_region(model)
         if blocked:
             region = region.difference(unary_union(blocked))
         shrunk = region.buffer(-settings.clearance_m / self.s)

@@ -2,10 +2,14 @@
 import math
 
 import shapely
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
 from shapely.ops import polylabel, unary_union
 
 EPS_LEN = 1e-6
+# A door opens the wall it is drawn in from face to face (assumptions Q18): wall within DOOR_REACH wall depths of
+# a door's long side that runs DOOR_SPAN of its width is doorway too; a wall that only meets its side is not
+DOOR_REACH = 0.5
+DOOR_SPAN = 0.9
 ELIGIBLE = ("living", "kitchen", "bedroom", "storage")
 REQUIRED_TOP = ("schema", "plan_id", "frame", "rules", "weights", "rooms", "hubs", "nodes", "rings", "metrics", "ranking_key")
 
@@ -163,8 +167,10 @@ def validate(plan, out, settings):
     layers = {k: _valid(plan.get(k)) for k in ("wall", "door", "window", "balcony", "garden", "pool", "parking", "front_door")}
     doors = layers["door"]
     walls = layers["wall"]
+    wd = float(plan.get("wall_depth") or 0) or 0.2 / s
     if walls is not None and doors is not None and not doors.is_empty:
-        walls = walls.difference(doors.buffer(EPS_LEN * 10))
+        cuts = [_through_wall(d, walls, DOOR_REACH * wd) for d in _flat(doors) if isinstance(d, Polygon)]
+        walls = walls.difference(unary_union(cuts + [doors]).buffer(EPS_LEN * 10))
     windows = layers["window"]
     building = _building(plan, rooms, s)
     allowed = building
@@ -172,7 +178,6 @@ def validate(plan, out, settings):
         if layers[k] is not None and not layers[k].is_empty:
             allowed = allowed.difference(layers[k])
     allowed = allowed.buffer(EPS_LEN * 10)
-    wd = float(plan.get("wall_depth") or 0) or 0.2 / s
     portal_zone, label = _portals(rooms, building, walls, windows, doors, wd, s)
     found = {"V10": [], "V11": [], "V12": [], "V13": [], "V14": []}
     for ring in out["rings"]:
@@ -223,6 +228,29 @@ def validate(plan, out, settings):
 
     valid = all(c["pass"] is not False for c in checks)
     return {"valid": valid, "checks": checks}
+
+
+def _through_wall(door, walls, reach):
+    """The door plus the wall left in front of it: pieces within reach of a long side that run its whole width."""
+    rect = door.minimum_rotated_rectangle
+    if not isinstance(rect, Polygon):
+        return door
+    c = list(rect.exterior.coords)[:4]
+    sides = sorted([(c[1][0] - c[0][0], c[1][1] - c[0][1]), (c[2][0] - c[1][0], c[2][1] - c[1][1])],
+                   key=lambda v: math.hypot(*v))
+    (ax, ay), (bx, by) = sides
+    depth, width = math.hypot(ax, ay), math.hypot(bx, by)
+    if depth == 0:
+        return door
+    dx, dy = ax / depth * reach, ay / depth * reach
+    front = MultiPoint([(x + k * dx, y + k * dy) for x, y in c for k in (-1, 1)]).convex_hull
+    keep = [door]
+    for piece in _flat(walls.intersection(front).difference(door)):
+        if isinstance(piece, Polygon):
+            t = [(x * bx + y * by) / width for x, y in piece.exterior.coords]
+            if max(t) - min(t) >= DOOR_SPAN * width:
+                keep.append(piece)
+    return unary_union(keep)
 
 
 def _needs_node(room, s, settings):

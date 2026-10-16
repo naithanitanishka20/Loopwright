@@ -8,22 +8,17 @@ from loopwright.solve import solve
 pytestmark = pytest.mark.dataset
 
 
-def test_rooms_the_router_cannot_join_get_separate_hubs(resplan_plans):
-    # 1205: bedroom_2's only openings are interior windows; it touches the living room through a
-    # crack too narrow to route. Of the groupings with the fewest hubs, the cheapest keeps it apart.
-    out, _ = solve(get_plan(resplan_plans, 1205), DEFAULT)
-    assert out["validation"]["valid"] is True
-    zone_of = {r: h["id"] for h in out["hubs"] for r in h["zone"]}
-    assert zone_of["bedroom_2"] != zone_of["living_0"]
-    assert not any(d["code"] == "ROUTE_UNREACHABLE" for d in out["diagnostics"])
-
-
 def test_a_zone_the_router_cannot_join_is_split_by_the_repair_pass(resplan_plans):
-    # 9313: the fewest-hub grouping puts bedroom_1 with rooms no route reaches; the repair splits it.
-    out, _ = solve(get_plan(resplan_plans, 9313), DEFAULT)
+    # 14245: the door graph joins bedroom_3 to the kitchen, but the only way between them is a 12 cm slot where
+    # two walls fail to meet. The fewest-hub grouping puts them together; the repair pass gives each its own hub.
+    # (Plans 1205 and 9313 were the examples until Phase 14 opened their doors drawn short of the wall.)
+    out, _ = solve(get_plan(resplan_plans, 14245), DEFAULT)
     assert out["validation"]["valid"] is True
     unroutable = [d for d in out["diagnostics"] if d["code"] == "UNROUTABLE_LINK"]
-    assert unroutable and all(len(d["rooms"]) == 2 for d in unroutable)
+    assert [d["rooms"] for d in unroutable] == [["bedroom_3", "kitchen_0"]]
+    zone_of = {r: h["id"] for h in out["hubs"] for r in h["zone"]}
+    assert zone_of["bedroom_3"] != zone_of["kitchen_0"]
+    assert not any(d["code"] == "ROUTE_UNREACHABLE" for d in out["diagnostics"])
 
 
 @pytest.mark.parametrize("plan_id", [9313, 12736, 529])

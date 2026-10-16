@@ -13,6 +13,7 @@ from shapely.ops import nearest_points, polylabel, unary_union
 
 from loopwright.config import DEFAULT
 from loopwright.geometry.heal import flat, largest
+from loopwright.geometry.walkable import open_walls
 
 
 # polylabel precision: the pole found is within this of the true farthest point from the walls
@@ -44,14 +45,22 @@ def place_nodes(model, settings=DEFAULT):
     return nodes
 
 
+def node_in(piece, model, settings=DEFAULT):
+    """The node for one piece of a room, by place_nodes' rule, or None where no point keeps node_wall_m from its walls."""
+    pole = polylabel(piece, tolerance=POLE_TOLERANCE_M / model.m_per_unit)
+    if not piece.contains(pole) or piece.boundary.distance(pole) * model.m_per_unit < settings.node_wall_m:
+        return None  # the pole is the point farthest from the walls: if it is too near, every point is
+    if settings.node_rule == "near_doors":
+        barrier = _barrier(model.layers, model.wall_depth)
+        p = near_openings(piece, room_openings(piece, barrier, model.wall_depth), model.m_per_unit, settings.node_wall_m)
+        if p is not None:
+            return p
+    return pole
+
+
 def _barrier(layers, wall_depth):
     """Walls (doors cut out) and windows, grown a little so the room outline along them drops out."""
-    walls, doors, windows = layers.get("wall"), layers.get("door"), layers.get("window")
-    blockers = []
-    if walls is not None and not walls.is_empty:
-        blockers.append(walls.difference(doors) if doors is not None and not doors.is_empty else walls)
-    if windows is not None and not windows.is_empty:
-        blockers.append(windows)
+    blockers = [g for g in (open_walls(layers, wall_depth), layers.get("window")) if g is not None and not g.is_empty]
     if not blockers:
         return shapely.Polygon()
     barrier = unary_union(blockers).buffer(0.3 * wall_depth)

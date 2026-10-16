@@ -1,12 +1,14 @@
 """The pipeline: plan dict in, schema loopwright/2 dict out."""
+import itertools
 import time
 
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 
 from loopwright import SCHEMA
 from loopwright.config import DEFAULT
-from loopwright.geometry.nodes import place_nodes
+from loopwright.geometry.heal import flat
+from loopwright.geometry.nodes import node_in, place_nodes
 from loopwright.geometry.walkable import piece_index, pieces, walkable_hub, walkable_node, walkable_region
 from loopwright.geometry.portals import connector_ids, door_graph, is_connected
 from loopwright.geometry.spaces import OTHER_TYPES, build_model
@@ -22,12 +24,12 @@ MAX_REPAIRS = 3
 AVOID_M = 0.3
 
 
-def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset(), zone_cost=None):
+def _zones(model, settings, diagnostics, piece_of, unroutable=frozenset(), zone_cost=None, graph=None):
     elig = model.eligible
     ids = [sp.id for sp in elig]
     areas = [sp.area_m2 for sp in elig]
     n = len(ids)
-    spaces, adj = door_graph(model)
+    spaces, adj = graph or door_graph(model)
     connectors = connector_ids(spaces, settings.zone_link)
     for rid in ids:
         if not adj.get(rid):
@@ -126,6 +128,7 @@ def solve(plan, settings=DEFAULT):
             else:
                 base.append({"code": "ROOM_NOT_WALKABLE", "room": sp.id})
     piece_of = {rid: piece_index(pos, parts) for rid, pos in nodes_at.items()}
+    nodes_at, piece_of = _settle_split_rooms(model, settings, nodes_at, piece_of, parts, base)
 
     zone_cost = _zone_cost(model, settings, nodes_at)
 
@@ -150,6 +153,44 @@ def solve(plan, settings=DEFAULT):
         out["diagnostics"].append({"code": "REROUTED", "avoided": [[round(x, 3), round(y, 3)] for x, y in avoid_at]})
     out["metrics"]["runtime_s"] = round(time.perf_counter() - t0, 3)
     return out, model
+
+
+def _settle_split_rooms(model, settings, nodes_at, piece_of, parts, diagnostics):
+    """A room ResPlan draws in pieces that walls part (some living rooms) can hold its node in more than one
+    walkable area, and only rooms whose nodes share an area can share a hub. Each such node goes to the area
+    that lets the zones use the fewest hubs, staying where it is on a tie."""
+    options = {}
+    for sp in model.eligible:
+        here = {piece_of[sp.id]: nodes_at[sp.id]} if piece_of.get(sp.id) is not None else {}
+        for k, part in enumerate(parts):
+            if k in here:
+                continue
+            share = [p for p in flat(sp.geom.intersection(part)) if isinstance(p, Polygon)]
+            if not share:
+                continue
+            p = node_in(max(share, key=lambda q: q.area), model, settings)
+            if p is not None:
+                here[k] = (round(p.x, 3), round(p.y, 3))
+        if len(here) > 1:
+            options[sp.id] = here
+    if not options:
+        return nodes_at, piece_of
+    best, graph = None, door_graph(model)
+    # shortcut: tries the first 256 placements only; ResPlan needs at most a few (one or two rooms drawn in parts)
+    for combo in itertools.islice(itertools.product(*(sorted(o.items()) for o in options.values())), 256):
+        trial_pieces = {**piece_of, **{rid: k for rid, (k, _) in zip(options, combo)}}
+        hubs = _zones(model, settings, [], trial_pieces, graph=graph)[1]
+        key = (hubs, sum(trial_pieces[rid] != piece_of[rid] for rid in options))
+        if best is None or key < best[0]:
+            best = (key, combo, trial_pieces)
+    _, combo, trial_pieces = best
+    moved = dict(nodes_at)
+    for rid, (k, pos) in zip(options, combo):
+        if k != piece_of[rid]:
+            moved[rid] = pos
+            diagnostics.append({"code": "NODE_MOVED", "room": rid,
+                                "reason": "the room is drawn in parts walls separate; its node joins the part its neighbours open onto"})
+    return moved, trial_pieces
 
 
 def _cable_j(rings, s, settings):
@@ -323,7 +364,10 @@ def _design(plan, model, settings, nodes_at, region, piece_of, diagnostics, unro
         "rings": rings,
     }
     metrics = score(out, settings)
-    greedy = greedy_zones([sp.id for sp in elig], [sp.area_m2 for sp in elig], adj, settings)
+    # Greedy may join only the rooms the exact search may: linked, in one walkable area, and routable
+    joinable = {r: {v for v in links if piece_of.get(r) is not None and piece_of.get(v) == piece_of.get(r)
+                    and frozenset((r, v)) not in unroutable} for r, links in adj.items()}
+    greedy = greedy_zones([sp.id for sp in elig], [sp.area_m2 for sp in elig], joinable, settings)
     out["metrics"] = {"hubs": len(hubs), "hub_lower_bound": lb, "hub_minimum": hub_minimum if hub_minimum < 10 ** 9 else None,
                       "hubs_greedy": len(greedy), **metrics, "runtime_s": None}
     out["ranking_key"] = [len(hubs), metrics["J"]]

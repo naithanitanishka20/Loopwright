@@ -139,3 +139,79 @@ def test_a_plan_too_big_for_the_exact_search_is_refused_quickly_with_a_reason():
     with pytest.raises(ValueError, match=f"{n} eligible rooms"):
         solve(plan)
     assert time.perf_counter() - started < 5
+
+
+def test_a_living_room_drawn_in_two_parts_puts_its_node_where_the_bedroom_opens():
+    sq = lambda x0, y0, x1, y1: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+    plan = build_plan([{"type": "living", "polygon": sq(0, 0, 6, 5)},   # the larger part, walled off from the rest
+                       {"type": "living", "polygon": sq(6, 0, 9, 4)},   # the part the bedroom opens onto
+                       {"type": "bedroom", "polygon": sq(9, 0, 13, 4)}], doors=[(1, 2)])
+    settings = DEFAULT.with_overrides(node_rule="pole")  # the pole of the whole living room lies in the larger part
+    out, model = solve(plan, settings)
+    assert [sp.id for sp in model.eligible] == ["living_0", "bedroom_0"]
+    assert out["metrics"]["hubs"] == 1 and out["validation"]["valid"]  # 54 m² and two nodes: one zone
+    living = next(n for n in out["nodes"] if n["room"] == "living_0")
+    x0, _, x1, _ = model.space("living_0").geom.bounds
+    assert living["pos"][0] > x0 + (x1 - x0) * 6 / 9  # east of the wall at 6 m: in the bedroom's part
+    assert any(d["code"] == "NODE_MOVED" for d in out["diagnostics"])
+
+
+def test_a_door_drawn_a_hair_short_of_its_wall_still_joins_the_rooms():
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    # The wall runs to x = 5.05 and the door to a float hair short of it. Cut out exactly, the door would leave a
+    # sliver of wall across the doorway that parts the two rooms; the drawn plans of three rooms hit this.
+    plan = two_room_plan()
+    plan.update(wall=unary_union([plan["wall"], box(4.95, 0.1, 5.05, 3.9)]), door=box(4.95, 1.5, 5.05 - 1e-12, 2.4))
+    out, _ = solve(plan)
+    assert out["metrics"]["hubs"] == 1 and out["validation"]["valid"]
+
+
+def test_greedy_joins_only_rooms_that_share_a_walkable_area():
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    # An opening with no door in the middle wall, and an external area laid over it: the door graph still sees the
+    # opening, but no cable may pass, so greedy can't count the two rooms as one zone any more than the exact search.
+    plan = two_room_plan()
+    plan.update(door=None, balcony=box(4.9, 1.5, 5.1, 2.4))
+    out, _ = solve(plan)
+    assert out["metrics"]["hubs"] == 2
+    assert out["metrics"]["hubs_greedy"] == 2
+
+
+def test_a_door_drawn_short_of_its_walls_far_face_still_opens_the_wall():
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    # ResPlan draws some doors a few centimetres shallower than their wall (plan 4755: 3 cm short). The door is still
+    # an opening through the whole wall, so the strip of wall left in front of it must not part the rooms.
+    plan = two_room_plan()
+    plan.update(wall=unary_union([plan["wall"], box(4.95, 0.1, 5.05, 3.9)]), door=box(4.95, 1.5, 5.02, 2.4))
+    out, _ = solve(plan)
+    assert out["metrics"]["hubs"] == 1 and out["validation"]["valid"]
+
+
+def test_a_room_part_too_narrow_for_a_node_does_not_get_it():
+    sq = lambda x0, y0, x1, y1: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+    plan = build_plan([{"type": "living", "polygon": sq(0, 0, 6, 5)},
+                       {"type": "living", "polygon": sq(6, 0, 6.8, 4)},   # 0.7 m clear: no point 0.5 m from its walls
+                       {"type": "bedroom", "polygon": sq(6.8, 0, 10.8, 4)}], doors=[(1, 2)])
+    out, _ = solve(plan, DEFAULT.with_overrides(node_rule="pole"))
+    assert out["metrics"]["hubs"] == 2 and out["validation"]["valid"]
+    assert not any(d["code"] == "NODE_MOVED" for d in out["diagnostics"])
+
+
+def test_a_leg_through_a_wall_that_meets_a_doors_side_fails_v10(solved):
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+
+    # A wall runs into the side of the door. Only the door is an opening: a leg crossing that wall 3 cm from the
+    # door, within the door's reach, still crosses a wall.
+    plan, out = solved
+    plan = dict(plan, wall=unary_union([plan["wall"], box(4.0, 2.2, 4.95, 2.3)]))  # clear of the design's legs
+    assert "V10" not in failed(plan, out)
+    bad = copy.deepcopy(out)
+    bad["rings"][0]["legs"][0]["path"] = [[4.92, 2.1], [4.92, 2.35]]
+    assert "V10" in failed(plan, bad)

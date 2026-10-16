@@ -143,8 +143,6 @@ def two_bedrooms_off_a_living_room():
     return buf.getvalue()
 
 
-@pytest.mark.xfail(strict=True, reason="the walkable area leaves the upper bedroom in a piece of its own although its door "
-                                       "is found, so it gets a second hub (docs/phases/PHASE-9.md)")
 def test_two_bedrooms_off_a_living_room_share_its_hub():
     sketch = read_image(two_bedrooms_off_a_living_room(), m_per_px=M_PER_PX)
     assert sketch["doors"] == [[0, 1], [0, 2]]
