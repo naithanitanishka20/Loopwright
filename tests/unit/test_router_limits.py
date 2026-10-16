@@ -1,3 +1,4 @@
+import math
 import time
 
 import pytest
@@ -40,3 +41,12 @@ def test_a_plan_kilometres_across_is_refused_quickly_instead_of_routed():
     with pytest.raises(ValueError, match="check its units"):
         solve(plan, DEFAULT)
     assert time.perf_counter() - started < 10
+
+
+@pytest.mark.parametrize("spacing_m", [0, -1, math.nan, math.inf, True])
+def test_router_rejects_invalid_grid_spacing(spacing_m):
+    model = build_model(two_room_plan(), DEFAULT)
+    stops = place_nodes(model, DEFAULT)
+
+    with pytest.raises(ValueError, match="spacing_m must be a finite positive number"):
+        GridRouter(model, stops, DEFAULT, spacing_m=spacing_m)

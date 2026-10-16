@@ -11,6 +11,7 @@ so there every edge must lie wholly in the region. The search state is
 """
 import heapq
 import itertools
+import math
 
 import numpy as np
 import shapely
@@ -24,6 +25,9 @@ MAX_GRID_VERTICES = 1_000_000
 
 class GridRouter:
     def __init__(self, model, stops, settings, spacing_m=0.2, avoid=None, exclude=None):
+        if (isinstance(spacing_m, bool) or not isinstance(spacing_m, (int, float))
+                or not math.isfinite(spacing_m) or spacing_m <= 0):
+            raise ValueError("spacing_m must be a finite positive number")
         self.s = model.m_per_unit
         layers = model.layers
         blocked = []
