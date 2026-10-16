@@ -44,3 +44,15 @@ def test_results_command_reads_batch_files_and_writes_the_table(tmp_path, capsys
 
     assert main(["results", str(a), "--out", str(out)]) == 0
     assert "| test-split" in out.read_text(encoding="utf-8")
+
+
+def test_several_runs_also_get_a_row_for_all_their_plans_together(tmp_path, capsys):
+    a, b = tmp_path / "test-split.jsonl", tmp_path / "val-split.jsonl"
+    a.write_text("\n".join(json.dumps(r) for r in ROWS), encoding="utf-8")
+    b.write_text("\n".join(json.dumps(r) for r in ROWS[:2]), encoding="utf-8")
+    out = tmp_path / "results.md"
+
+    assert main(["results", str(a), str(b), "--out", str(out)]) == 0
+    assert "| all | 6 | 5 | 4 (80.0%) |" in out.read_text(encoding="utf-8")
+    assert main(["results", str(a), "--out", str(out)]) == 0
+    assert "| all |" not in out.read_text(encoding="utf-8")  # one run needs no total

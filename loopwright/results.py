@@ -1,4 +1,5 @@
-"""The results table: one row per batch run, every number computed from the batch records.
+"""The results table: one row per batch run, plus one for all of them together when there are
+several, every number computed from the batch records.
 
 Validity and hub totals count feasible plans (a room over 100 m² has no valid
 design); cable, bends, crossings, overlap and J count valid plans; runtime
@@ -55,4 +56,8 @@ def render_results(named):
 
 
 def results_file(paths):
-    return render_results({pathlib.Path(p).stem: summarize(load_rows(p)) for p in paths})
+    runs = {pathlib.Path(p).stem: load_rows(p) for p in paths}
+    named = {name: summarize(rows) for name, rows in runs.items()}
+    if len(runs) > 1:
+        named["all"] = summarize([r for rows in runs.values() for r in rows])
+    return render_results(named)

@@ -1,4 +1,4 @@
-"""Command line: loopwright solve | validate | index | batch | results | serve | config."""
+"""Command line: loopwright solve | validate | index | batch | results | charts | serve | config."""
 import argparse
 import json
 import os
@@ -146,6 +146,23 @@ def cmd_results(args):
     return 0
 
 
+def cmd_charts(args):
+    from loopwright.charts import extra_hubs_chart, runtime_chart
+    from loopwright.results import load_rows
+
+    rows = [r for path in args.runs for r in load_rows(path)]
+    if args.runtime:
+        times, label = [r["runtime_s"] for r in load_rows(args.runtime)], "single process"
+    else:
+        times, label = [r["runtime_s"] for r in rows], "parallel batch"
+    out = pathlib.Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "extra-hubs.svg").write_text(extra_hubs_chart(rows), encoding="utf-8")
+    (out / "runtime.svg").write_text(runtime_chart(times, label=label), encoding="utf-8")
+    print(f"wrote {out / 'extra-hubs.svg'} and {out / 'runtime.svg'}")
+    return 0
+
+
 def cmd_serve(args):
     import uvicorn
 
@@ -167,6 +184,11 @@ def main(argv=None):
     rs = sub.add_parser("results", help="write the results table from batch records (.jsonl)")
     rs.add_argument("runs", nargs="+", help="batch .jsonl files; each becomes a row named after the file")
     rs.add_argument("--out", default="bench/results.md")
+    ch = sub.add_parser("charts", help="write the slide figures (SVG) from batch records (.jsonl)")
+    ch.add_argument("runs", nargs="+", help="batch .jsonl files; their plans are pooled")
+    ch.add_argument("--runtime", help="records of a one-worker batch for the runtime figure "
+                                      "(default: the runs' own times)")
+    ch.add_argument("--out", default="docs/figures")
     sv = sub.add_parser("serve", help="run the demo app on this machine")
     sv.add_argument("--host", default="127.0.0.1", help="address to listen on (default: %(default)s)")
     sv.add_argument("--port", type=int, default=8000)
@@ -205,6 +227,8 @@ def main(argv=None):
         return cmd_serve(args)
     if args.command == "results":
         return cmd_results(args)
+    if args.command == "charts":
+        return cmd_charts(args)
     if args.command == "solve":
         if not args.json and not args.id:
             p.error("give --id (ResPlan) or --json (organisers' file)")
