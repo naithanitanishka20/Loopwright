@@ -231,8 +231,15 @@ def test_the_playground_shows_the_design_as_the_sites_scale_model(browser, playg
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.goto(playground_url)
     page.wait_for_load_state("networkidle")
-    assert page.locator(".top .title").inner_text() == "Playground"
-    assert page.locator('.links a[href="/"]').count() == 1 and page.locator(".links .gear").get_attribute("href") == "/settings.html"
+    assert page.locator("h1.page-title").inner_text() == "Playground"  # inside the site's own header and footer
+    assert page.locator(".top a.logo").get_attribute("href") == "/index.html"
+    assert page.locator(".top .links .gear").get_attribute("href") == "/settings.html"
+    current = page.locator('.top .links a[aria-current="page"]')
+    assert current.inner_text() == "Playground" and current.is_visible()
+    page.click(".top .menu-button")
+    assert page.locator("#features-menu a").first.get_attribute("href") == "/index.html#edit"
+    page.keyboard.press("Escape")
+    assert page.locator("footer .titleblock").is_visible()
     draw_and_solve(page)
     page.click("#view-model")
     page.wait_for_selector("#model svg.live")
@@ -251,3 +258,20 @@ def test_the_playground_shows_the_design_as_the_sites_scale_model(browser, playg
     assert page.locator("#canvas").is_visible() and page.locator("#model-figure").is_hidden()
     assert errors == []
     page.close()
+
+
+@pytest.mark.dataset
+def test_with_the_plans_the_playground_opens_on_a_solved_plan_as_a_model(browser):
+    from tests.conftest import DATA
+
+    server, thread, url = start_server(str(DATA), SITE)
+    try:
+        page = browser.new_page(viewport={"width": 1400, "height": 1000})
+        page.goto(url + "app/")
+        page.wait_for_selector("#model svg.live", timeout=60000)
+        assert page.locator("#view-model").get_attribute("aria-pressed") == "true"
+        assert page.locator('[data-metric="hubs"] b').inner_text().startswith("4")  # plan 16448 under the own-doors rule
+        page.close()
+    finally:
+        server.should_exit = True
+        thread.join(5)

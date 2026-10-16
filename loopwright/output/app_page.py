@@ -4,10 +4,12 @@ One page, talking only to the API. Sources: a ResPlan plan by id, an uploaded im
 rooms drawn on a grid. Every change (door removed, rooms connected, room type changed, zone rule
 switched) is re-solved by the server, so the drawing, the validator and the explanation always
 describe the same design. Served with the site (`loopwright serve --site`), the page is the site's
-playground: the site's fonts and links, and a model view that shows the design as the site's scale
-model, signal and all. Text from the server is only ever written with textContent; the model's SVG is
+playground: inside the site's own header and footer, dressed by its stylesheet, with a model view that
+shows the design as the site's scale model, signal and all. Text from the server is only ever written with textContent; the model's SVG is
 parsed as SVG, never written as HTML.
 """
+import pathlib
+
 
 LOOP = ("M573.0 265.0C556.2 283.2 540.1 301.7 522.7 319.5C505.3 337.2 487.9 355.2 468.6 371.6C449.3 387.9 429.3 404.3 "
         "407.0 417.6C384.6 430.8 360.6 443.8 334.7 451.2C308.9 458.6 280.0 464.5 251.8 462.2C223.6 459.9 191.7 453.0 165.6 "
@@ -26,56 +28,51 @@ GEAR = ("M19.38 10.17 L21.91 10.67 L21.91 13.33 L19.38 13.83 L18.51 15.92 L19.95
         "L13.83 4.62 L15.92 5.49 L18.07 4.05 L19.95 5.93 L18.51 8.08Z")
 
 
-def render_app(site=False):
-    """The page; with `site`, the site's playground: its fonts and links, and the model view."""
-    parts = SITE if site else ALONE
+def render_app(site_dir=None):
+    """The app on its own; given the built site's folder, the site's playground: inside the site's own header
+    and footer, dressed by its stylesheet, with the model view."""
+    if site_dir is None:
+        return _fill(ALONE)
+    index = (pathlib.Path(site_dir) / "index.html").read_text(encoding="utf-8")
+    header = _rooted(_part(index, '<header class="top">', "</header>")) or OWN_HEADER
+    return _fill(dict(SITE, HEADER=header, FOOTER=_rooted(_part(index, '<footer class="foot">', "</footer>"))))
+
+
+def _part(page, start, end):
+    i = page.find(start)
+    j = page.find(end, i) if i >= 0 else -1
+    return page[i:j + len(end)] if j >= 0 else ""
+
+
+def _rooted(html):
+    """The site's own links made absolute, since the playground lives under /app/, and its link marked current."""
+    html = html.replace('href="index.html', 'href="/index.html').replace('href="settings.html', 'href="/settings.html')
+    return html.replace('class="section-link playground" href="/app/"', 'class="section-link playground" href="/app/" aria-current="page"')
+
+
+def _fill(parts):
     page = PAGE
     for key, value in parts.items():
         page = page.replace("{{" + key + "}}", value)
     return page
 
 
-SITE = {
-    "HEAD": """<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/figure.css">
-<script src="/model.js" defer></script>
-<style>
-@font-face { font-family: "Instrument Sans"; src: url("/assets/fonts/InstrumentSans-400-700.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
-@font-face { font-family: "IBM Plex Mono"; src: url("/assets/fonts/IBMPlexMono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
-@font-face { font-family: "IBM Plex Mono"; src: url("/assets/fonts/IBMPlexMono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
-@font-face { font-family: "Outfit"; src: url("/assets/fonts/Outfit-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
-</style>""",
-    "HOME": "/",
-    "NAV": f"""<nav class="pane links" aria-label="The site">
-    <a href="/">Overview</a>
-    <a href="/#features">Features</a>
-    <a href="https://github.com/naithanitanishka20/Loopwright">GitHub</a>
-    <a class="gear" href="/settings.html" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="{GEAR}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
-  </nav>""",
-    "VIEWS": """<div class="views" role="group" aria-label="View">
-        <button type="button" id="view-plan" aria-pressed="true">Plan</button><button type="button" id="view-model" aria-pressed="false">Model</button>
-      </div>""",
-    "MODEL": """<figure class="plate-figure" id="model-figure" hidden><div class="plate has-control"></div></figure>
-    <p class="sr" aria-live="polite" id="model-live"></p>""",
-}
-ALONE = {"HEAD": '<link rel="icon" href="data:,">', "HOME": "#app", "NAV": "", "VIEWS": "", "MODEL": ""}
+OWN_HEADER = """<header class="top">
+  <div class="pane brand">
+    <a class="logo" href="/" aria-label="Loopwright"><span class="wm" aria-hidden="true">L<svg class="loop" viewBox="0 0 1152 520" focusable="false"><defs><linearGradient id="loop-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="1136" y2="0"><stop offset="0" stop-color="#05F7FF"/><stop offset=".5" stop-color="#01BFFF"/><stop offset="1" stop-color="#004AF0"/></linearGradient></defs><path d="{{LOOP}}" stroke="url(#loop-gradient)" stroke-width="115"/></svg>pwright</span></a>
+    <span class="title">Playground</span>
+  </div>
+</header>""".replace("{{LOOP}}", LOOP)
 
-
-PAGE = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Loopwright playground</title>
-{{HEAD}}
-<style>
-:root {
+# On its own the page carries the site's look itself; with the site, styles.css gives it all of this.
+BASE_CSS = """:root {
   --paper: #ece6d8; --sheet: #f6f2e9; --panel: #f2ede2; --ink: #23211d; --ink-2: #4a453d; --graphite: #6b665c;
-  --rule: #cdc4b2; --line: #3a3631; --lift: rgba(35, 33, 29, 0.14); --blue: #004af0; --red: #d23b2a; --ok: #1f7a4a;
-  --glass: #bcd6e5; --hall: #e3dccd;
+  --rule: #cdc4b2; --line: #3a3631; --lift: rgba(35, 33, 29, 0.14); --blue: #004af0; --red: #d23b2a;
   --sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
-[hidden] { display: none !important; }
 body {
   margin: 0; color: var(--ink); font: 400 15px/1.5 var(--sans); background-color: var(--paper);
   background-image: linear-gradient(rgba(35, 33, 29, 0.075) 1px, transparent 1px), linear-gradient(90deg, rgba(35, 33, 29, 0.075) 1px, transparent 1px),
@@ -93,85 +90,112 @@ a { color: var(--blue); }
 .wm .loop { width: 1.152em; height: 0.52em; margin: 0 -0.02em 0 0.01em; }
 .loop path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .title { display: flex; align-items: center; padding: 0 14px; font: 500 13px/1 var(--mono); }
-.links a { display: flex; align-items: center; padding: 0 14px; color: var(--ink); font: 500 13px/1 var(--mono); text-decoration: none; white-space: nowrap; }
-.links a:hover { background: var(--ink); color: var(--sheet); }
-.gear { justify-content: center; width: 44px; padding: 0 !important; }
-.gear svg { width: 20px; height: 20px; }
-.strip { padding: 12px 16px 0; font: 500 13px/1.4 var(--mono); color: var(--ink-2); min-height: 1.4em; }
+"""
+
+SITE = {
+    "HEAD": """<meta name="loopwright:app" content="/app/">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/figure.css">
+<script>document.documentElement.classList.add("js");</script>
+<script src="/model.js" defer></script>
+<script src="/main.js" defer></script>""",
+    "BASE": "",
+    "INTRO": """<section class="section playground-intro" aria-labelledby="playground-title">
+  <h1 class="page-title" id="playground-title">Playground</h1>
+  <p>Pick a ResPlan plan, upload a drawing or draw rooms on a grid. Loopwright solves it at once, and again after every change you make. Edit and cut on the plan; the model builds the design the way this site's figures are built, with a signal running round each ring.</p>
+  <p class="hand" aria-hidden="true">click a cable in the model to cut it</p>
+</section>""",
+    "VIEWS": """<div class="views" role="group" aria-label="View">
+        <button type="button" id="view-plan" aria-pressed="true">Plan</button><button type="button" id="view-model" aria-pressed="false">Model</button>
+      </div>""",
+    "MODEL": """<figure class="plate-figure" id="model-figure" hidden><div class="plate has-control"></div></figure>
+    <p class="sr" aria-live="polite" id="model-live"></p>""",
+}
+ALONE = {"HEAD": '<link rel="icon" href="data:,">', "BASE": BASE_CSS, "HEADER": OWN_HEADER, "INTRO": "", "VIEWS": "", "MODEL": "",
+         "FOOTER": ""}
+
+
+PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loopwright playground</title>
+{{HEAD}}
+<style>
+{{BASE}}
+:root { --ok: #1f7a4a; --glass: #bcd6e5; --hall: #e3dccd; --max: 1480px; }  /* the app needs the room; the intro and footer follow */
+[hidden] { display: none !important; }
+.playground-intro { padding-top: clamp(36px, 6vw, 72px); }
+.playground-intro .hand { margin-top: 10px; }
+.strip { max-width: var(--max); margin: 0 auto; padding: 18px var(--gutter, 16px) 0; color: var(--ink-2); font: 500 13px/1.4 var(--mono); min-height: 1.4em; }
 .strip b { color: var(--ink); font-weight: 500; }
-main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 16px; padding: 14px 16px 32px; align-items: start; }
-@media (max-width: 1200px) { main { grid-template-columns: minmax(0, 1fr) 320px; } #source { grid-column: 1 / -1; } }
-@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } .links a:not(.gear) { display: none; } }
-section, .panel { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); background: var(--sheet); box-shadow: 3px 3px 0 var(--lift); }
-aside { display: grid; gap: 14px; min-width: 0; }
-h2 { margin: 0 0 8px; color: var(--graphite); font: 500 12.5px/1.3 var(--mono); }
-ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 14px; }
-button, select, input { font: inherit; color: var(--ink); }
-button { padding: 6px 10px; border: 1px solid var(--line); background: var(--sheet); font: 500 13px/1 var(--mono); cursor: pointer; box-shadow: 2px 2px 0 var(--lift); }
-button:hover:not(:disabled) { background: var(--ink); color: var(--sheet); }
-button[aria-pressed="true"], button[aria-selected="true"] { background: var(--ink); color: var(--sheet); }
-button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
-button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-#load-id, #import, #draw-solve { background: var(--blue); border-color: var(--blue); color: #fff; }
-select, input[type=number], input[inputmode] { padding: 4px 6px; border: 1px solid var(--line); background: #fbf9f4; font: 400 13px/1.3 var(--mono); }
-input[type=number], input[inputmode] { width: 110px; }
-label { font-size: 14px; }
-.tabs, .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.pane-body { display: grid; gap: 10px; }
-.hint { margin: 0; color: var(--graphite); font-size: 13px; }
+#app { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 16px; padding: 14px var(--gutter, 16px) 32px; align-items: start; }
+@media (max-width: 1200px) { #app { grid-template-columns: minmax(0, 1fr) 320px; } #source { grid-column: 1 / -1; } }
+@media (max-width: 760px) { #app { grid-template-columns: minmax(0, 1fr); } }
+#app section { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); background: var(--sheet); box-shadow: 3px 3px 0 var(--lift); }
+#app aside { display: grid; gap: 14px; min-width: 0; }
+#app h2 { margin: 0 0 8px; color: var(--graphite); font: 500 12.5px/1.3 var(--mono); }
+#app ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 14px; }
+#app button, #app select, #app input { font: inherit; color: var(--ink); }
+#app button { padding: 6px 10px; border: 1px solid var(--line); background: var(--sheet); font: 500 13px/1 var(--mono); cursor: pointer; box-shadow: 2px 2px 0 var(--lift); }
+#app button:hover:not(:disabled) { background: var(--ink); color: var(--sheet); }
+#app button[aria-pressed="true"], #app button[aria-selected="true"] { background: var(--ink); color: var(--sheet); }
+#app button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+#app button:focus-visible, #app select:focus-visible, #app input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#app #load-id, #app #import, #app #draw-solve { background: var(--blue); border-color: var(--blue); color: #fff; }
+#app select, #app input[type=number], #app input[inputmode] { padding: 4px 6px; border: 1px solid var(--line); background: #fbf9f4; font: 400 13px/1.3 var(--mono); }
+#app input[type=number], #app input[inputmode] { width: 110px; }
+#app label { font-size: 14px; }
+#app .tabs, #app .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+#app .pane-body { display: grid; gap: 10px; }
+#app .hint { margin: 0; color: var(--graphite); font-size: 13px; }
 #stage { display: grid; gap: 10px; min-width: 0; }
 #toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.views { display: inline-flex; margin-right: 6px; }
-.views button { box-shadow: none; }
-.views button + button { border-left: 0; }
+#app .views { display: inline-flex; margin-right: 6px; }
+#app .views button { box-shadow: none; }
+#app .views button + button { border-left: 0; }
 #canvas { border: 1px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--lift); }
 #plan { width: 100%; height: auto; display: block; touch-action: none; }
-.room { stroke: var(--ink); stroke-opacity: 0.25; }
-.room.flag { stroke: var(--red); stroke-opacity: 1; stroke-width: var(--u2); stroke-dasharray: var(--u4) var(--u2); }
-.room.sel { stroke: var(--blue); stroke-opacity: 1; stroke-width: var(--u3); }
-.wall { fill: var(--ink); } .door { fill: var(--panel); } .window { fill: var(--glass); stroke: var(--ink-2); }
-.door-hit { fill: transparent; stroke: transparent; cursor: pointer; }
-.editing .door-hit:hover { stroke: var(--blue); }
-.editing .room { cursor: pointer; }
-.leg { fill: none; stroke-linejoin: round; stroke-linecap: round; }
-.leg-hit { fill: none; stroke: transparent; pointer-events: none; }
-.cutting .leg-hit { pointer-events: stroke; cursor: crosshair; }
-.nums, .editing .leg, .editing .node, .editing .hub, .cutting .node, .cutting .hub { pointer-events: none; }
-.leg.hl { stroke: var(--blue) !important; filter: drop-shadow(0 0 2px var(--blue)); }
-.leg.cut { stroke: var(--red) !important; stroke-dasharray: var(--u3) var(--u2); }
-.node { fill: #fbf9f4; } .node.rev { stroke-dasharray: var(--u2) var(--u1); }
-.lbl { fill: var(--ink); font-family: var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.lbl.halo { paint-order: stroke; stroke: #fbf9f4; stroke-linejoin: round; }
-.grid line { stroke: var(--rule); } .grid line.major { stroke: var(--ink-2); stroke-opacity: 0.35; }
-.sketch { fill: var(--hall); stroke: var(--ink); } .ghost { fill: none; stroke: var(--blue); stroke-dasharray: .2 .1; }
+#plan .room { stroke: var(--ink); stroke-opacity: 0.25; }
+#plan .room.flag { stroke: var(--red); stroke-opacity: 1; stroke-width: var(--u2); stroke-dasharray: var(--u4) var(--u2); }
+#plan .room.sel { stroke: var(--blue); stroke-opacity: 1; stroke-width: var(--u3); }
+#plan .wall { fill: var(--ink); } #plan .door { fill: var(--panel); } #plan .window { fill: var(--glass); stroke: var(--ink-2); }
+#plan .door-hit { fill: transparent; stroke: transparent; cursor: pointer; }
+#plan.editing .door-hit:hover { stroke: var(--blue); }
+#plan.editing .room { cursor: pointer; }
+#plan .leg { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+#plan .leg-hit { fill: none; stroke: transparent; pointer-events: none; }
+#plan.cutting .leg-hit { pointer-events: stroke; cursor: crosshair; }
+#plan .nums, #plan.editing .leg, #plan.editing .node, #plan.editing .hub, #plan.cutting .node, #plan.cutting .hub { pointer-events: none; }
+#plan .leg.hl { stroke: var(--blue) !important; filter: drop-shadow(0 0 2px var(--blue)); }
+#plan .leg.cut { stroke: var(--red) !important; stroke-dasharray: var(--u3) var(--u2); }
+#plan .node { fill: #fbf9f4; } #plan .node.rev { stroke-dasharray: var(--u2) var(--u1); }
+#plan .lbl { fill: var(--ink); font-family: var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+#plan .lbl.halo { paint-order: stroke; stroke: #fbf9f4; stroke-linejoin: round; }
+#plan .grid line { stroke: var(--rule); } #plan .grid line.major { stroke: var(--ink-2); stroke-opacity: 0.35; }
+#plan .sketch { fill: var(--hall); stroke: var(--ink); } #plan .ghost { fill: none; stroke: var(--blue); stroke-dasharray: .2 .1; }
 #rules li { display: grid; grid-template-columns: 70px 44px minmax(0, 1fr); gap: 6px; align-items: baseline; font-size: 13px; }
-#rules button { padding: 2px 6px; font-size: 12px; box-shadow: none; }
+#app #rules button { padding: 2px 6px; font-size: 12px; box-shadow: none; }
 #rules .pass .state { color: var(--ok); } #rules .fail .state { color: var(--red); font-weight: 700; } #rules .skip .state { color: var(--graphite); }
-.detail { color: var(--graphite); overflow-wrap: anywhere; }
+#app .detail { color: var(--graphite); overflow-wrap: anywhere; }
 #status { min-height: 1.4em; color: var(--graphite); font: 400 13px/1.4 var(--mono); } #status.err { color: var(--red); font-weight: 500; }
 #draw-rooms li, #draw-doors li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.plate-figure { margin: 0; }
-.plate { position: relative; padding: 46px 14px 58px; border: 1px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--lift); overflow: hidden; }
-.corners > span { position: absolute; color: var(--graphite); font: 500 12.5px/1.25 var(--mono); pointer-events: none; }
-.corners > [data-corner="fig"] { top: 15px; left: 16px; color: var(--ink); }
-.corners > [data-corner="title"] { top: 15px; right: 16px; color: var(--ink); }
-.corners > [data-corner="hint"] { bottom: 19px; left: 140px; }
-.corners > [data-corner="readout"] { bottom: 19px; right: 16px; color: var(--ink); text-align: right; }
-.plate-control { position: absolute; left: 16px; bottom: 13px; }
-.plate-control[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
-.stage { outline: none; }
-.stage:focus-visible { outline: 2px solid var(--blue); outline-offset: 6px; }
-@media (max-width: 760px) { .corners > [data-corner="hint"] { display: none; } }
-@media (prefers-reduced-motion: reduce) { .leg { transition: none !important; } }
+#model-figure { margin: 0; }
+#model-figure .plate { position: relative; padding: 46px 14px 58px; border: 1px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--lift); overflow: hidden; }
+#model-figure .corners > span { position: absolute; color: var(--graphite); font: 500 12.5px/1.25 var(--mono); pointer-events: none; }
+#model-figure .corners > [data-corner="fig"] { top: 15px; left: 16px; color: var(--ink); }
+#model-figure .corners > [data-corner="title"] { top: 15px; right: 16px; color: var(--ink); }
+#model-figure .corners > [data-corner="hint"] { bottom: 19px; left: 140px; }
+#model-figure .corners > [data-corner="readout"] { bottom: 19px; right: 16px; color: var(--ink); text-align: right; }
+#app .plate-control { position: absolute; left: 16px; bottom: 13px; }
+#app .plate-control[aria-pressed="true"] { background: var(--sheet); border-color: var(--red); color: var(--red); }
+#model { outline: none; }
+#model:focus-visible { outline: 2px solid var(--blue); outline-offset: 6px; }
+@media (max-width: 760px) { #model-figure .corners > [data-corner="hint"] { display: none; } }
+@media (prefers-reduced-motion: reduce) { #plan .leg { transition: none !important; } }
 </style></head>
 <body>
-<header class="top">
-  <div class="pane brand">
-    <a class="logo" href="{{HOME}}" aria-label="Loopwright"><span class="wm" aria-hidden="true">L<svg class="loop" viewBox="0 0 1152 520" focusable="false"><defs><linearGradient id="loop-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="1136" y2="0"><stop offset="0" stop-color="#05F7FF"/><stop offset=".5" stop-color="#01BFFF"/><stop offset="1" stop-color="#004AF0"/></linearGradient></defs><path d="{{LOOP}}" stroke="url(#loop-gradient)" stroke-width="115"/></svg>pwright</span></a>
-    <span class="title">Playground</span>
-  </div>
-  {{NAV}}
-</header>
+{{HEADER}}
+{{INTRO}}
 <div class="strip"><span id="metrics"></span></div>
 <main id="app">
   <section id="source" aria-label="Plan source">
@@ -232,6 +256,7 @@ label { font-size: 14px; }
     <section id="notes-panel" hidden><h2>Import notes</h2><ul id="notes"></ul></section>
   </aside>
 </main>
+{{FOOTER}}
 <script>
 (function () {
   "use strict";
@@ -676,6 +701,7 @@ label { font-size: 14px; }
     if (p.available) {
       $("dataset-note").textContent = p.test.length + " test-split plans available, for example " + p.test.slice(0, 3).join(", ") + ".";
       setTab("id");
+      if ($("model-figure") && !location.hash) { setView("model"); loadById(); }  // the playground opens on a solved plan, as a model
     } else {
       $("dataset-note").textContent = "ResPlan isn't on this machine; draw or upload a plan instead.";
       $("load-id").disabled = true;
@@ -686,4 +712,4 @@ label { font-size: 14px; }
 })();
 </script>
 </body></html>
-""".replace("{{LOOP}}", LOOP)
+"""

@@ -325,8 +325,10 @@ h3 {
   color: var(--blue);
 }
 
-.links a.playground:hover {
-  color: var(--sheet);
+.links a.playground:hover,
+.links a.playground[aria-current="page"] {
+  background: var(--blue);
+  color: #fff;
 }
 
 .gear {

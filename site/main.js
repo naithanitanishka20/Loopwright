@@ -81,7 +81,7 @@
   }
 
   if (!data) {
-    root.classList.remove("js");
+    if (document.querySelector("[data-drawing]")) root.classList.remove("js");  // the figures fall back to their images
     return;
   }
 

@@ -198,12 +198,19 @@ def test_a_solve_can_ask_for_the_scale_model_too(client):
     assert all(r["length"] > 0 for r in rings)
 
 
-def test_with_the_site_the_app_is_its_playground_and_every_page_knows_it(tmp_path):
+def test_with_the_site_the_app_is_its_playground_in_the_sites_own_header_and_footer(tmp_path):
     site = a_site(tmp_path)
+    (site / "index.html").write_text(
+        '<html><head></head><body><header class="top"><a class="logo" href="index.html">Loopwright</a>'
+        '<a class="section-link playground" href="/app/" data-hosted hidden>Playground</a>'
+        '<a class="gear" href="settings.html">Settings</a></header><main>the site</main>'
+        '<footer class="foot">the title block</footer></body></html>', encoding="utf-8")
     (site / "settings.html").write_text("<html><head></head><body>settings</body></html>", encoding="utf-8")
     client = TestClient(create_app(data_path=None, site_dir=site), base_url="http://127.0.0.1")
     playground = client.get("/app/").text
-    for part in ('href="/figure.css"', 'src="/model.js"', 'id="view-model"', 'href="/settings.html"', 'href="/"', "Playground"):
+    for part in ('href="/styles.css"', 'href="/figure.css"', 'src="/main.js"', 'src="/model.js"', 'id="view-model"',
+                 '<a class="logo" href="/index.html">', '<a class="gear" href="/settings.html">', "the title block",
+                 'class="section-link playground" href="/app/" aria-current="page"', '<meta name="loopwright:app" content="/app/">'):
         assert part in playground, part
     assert '<meta name="loopwright:app" content="/app/">' in client.get("/settings.html").text
 

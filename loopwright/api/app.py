@@ -118,9 +118,11 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
         settings = DEFAULT.with_overrides(**req.settings)
         return apply_edits(plan, req.edits, settings), settings
 
+    app_html = render_app(site_dir)
+
     @app.get("/app/" if site_dir else "/", response_class=HTMLResponse)
     def index():
-        return render_app(site=bool(site_dir))
+        return app_html
 
     @app.get("/api/plans")
     def plans():
