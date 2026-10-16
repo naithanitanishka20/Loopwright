@@ -278,7 +278,7 @@ def test_the_settings_gear_sits_in_the_right_corner_of_the_section_links(visit, 
     assert abs(gear["x"] + gear["width"] - (links["x"] + links["width"])) <= 1.5
     assert links["x"] + links["width"] >= width - 60  # the header's right-hand pane
     if width == 1440:
-        assert page.locator(".top .links a").all_inner_texts()[:4] == ["How it works", "Results", "Run it", "GitHub"]
+        assert page.locator(".top .links a:visible").all_inner_texts()[:4] == ["How it works", "Results", "Run it", "GitHub"]
 
 
 def answer_height(page, i):
@@ -339,7 +339,16 @@ def test_served_with_a_hosted_app_the_feature_buttons_open_it(browser, site_url)
     for slug in FEATURES:
         assert page.locator(f"article#{slug} a.button").get_attribute("href") == f"/app/#{slug}"
     assert page.locator("[data-local]").first.is_hidden()
+    playground = page.locator(".hero .actions a.primary:visible")  # the playground leads, and the header links to it
+    assert playground.inner_text() == "Open the playground" and playground.get_attribute("href") == "/app/"
+    assert page.locator('.top .links a[href="/app/"]').is_visible()
     context.close()
+
+
+def test_a_static_copy_has_no_playground_to_point_at(visit):
+    page, _ = visit()
+    assert page.locator('a[href="/app/"]:visible').count() == 0
+    assert page.locator(".hero .actions a.primary:visible").inner_text() == "Run it on your machine"
 
 
 @pytest.mark.parametrize("width", [1440, 390])

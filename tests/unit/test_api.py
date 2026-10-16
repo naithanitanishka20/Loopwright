@@ -186,3 +186,29 @@ def test_serve_can_put_the_site_in_front_and_answer_to_a_public_host(tmp_path, m
     client = TestClient(served["app"], base_url="http://loopwright.example")
     assert "the site" in client.get("/").text and 'id="app"' in client.get("/app/").text
     assert client.get("/", headers={"host": "evil.example"}).status_code == 400
+
+
+def test_a_solve_can_ask_for_the_scale_model_too(client):
+    plain = client.post("/api/solve", json={"source": {"sketch": SKETCH}})
+    assert plain.status_code == 200 and "model" not in plain.json()
+    asked = client.post("/api/solve", json={"source": {"sketch": SKETCH}, "model": True}).json()
+    assert 'class="iso-svg model live"' in asked["model"]["svg"]
+    rings = asked["model"]["rings"]
+    assert [r["hub"] for r in rings] == [h["id"] for h in asked["design"]["hubs"]]
+    assert all(r["length"] > 0 for r in rings)
+
+
+def test_with_the_site_the_app_is_its_playground_and_every_page_knows_it(tmp_path):
+    site = a_site(tmp_path)
+    (site / "settings.html").write_text("<html><head></head><body>settings</body></html>", encoding="utf-8")
+    client = TestClient(create_app(data_path=None, site_dir=site), base_url="http://127.0.0.1")
+    playground = client.get("/app/").text
+    for part in ('href="/figure.css"', 'src="/model.js"', 'id="view-model"', 'href="/settings.html"', 'href="/"', "Playground"):
+        assert part in playground, part
+    assert '<meta name="loopwright:app" content="/app/">' in client.get("/settings.html").text
+
+
+def test_on_its_own_the_app_page_needs_no_site_files(client):
+    page = client.get("/").text
+    assert 'id="app"' in page and "Playground" in page
+    assert "/figure.css" not in page and "/model.js" not in page and 'id="view-model"' not in page

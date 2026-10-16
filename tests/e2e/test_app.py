@@ -1,4 +1,5 @@
-"""The demo app in a browser, against a real local server."""
+"""The demo app in a browser, against a real local server, on its own and as the site's playground."""
+import pathlib
 import socket
 import threading
 import time
@@ -11,12 +12,14 @@ from loopwright.api.app import create_app  # noqa: E402
 
 pytestmark = pytest.mark.e2e
 
+SITE = pathlib.Path(__file__).resolve().parents[2] / "site"
 
-def start_server(data_path):
+
+def start_server(data_path, site_dir=None):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(data_path=data_path), host="127.0.0.1", port=port, log_level="warning"))
+    server = uvicorn.Server(uvicorn.Config(create_app(data_path=data_path, site_dir=site_dir), host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     deadline = time.time() + 10
@@ -211,3 +214,40 @@ def test_zone_rule_switch_on_plan_16448(browser):
     finally:
         server.should_exit = True
         thread.join(5)
+
+
+@pytest.fixture(scope="module")
+def playground_url():
+    server, thread, url = start_server(None, SITE)
+    yield url + "app/"
+    server.should_exit = True
+    thread.join(5)
+
+
+def test_the_playground_shows_the_design_as_the_sites_scale_model(browser, playground_url):
+    page = browser.new_page(viewport={"width": 1400, "height": 1000})
+    errors = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.goto(playground_url)
+    page.wait_for_load_state("networkidle")
+    assert page.locator(".top .title").inner_text() == "Playground"
+    assert page.locator('.links a[href="/"]').count() == 1 and page.locator(".links .gear").get_attribute("href") == "/settings.html"
+    draw_and_solve(page)
+    page.click("#view-model")
+    page.wait_for_selector("#model svg.live")
+    assert page.locator("#canvas").is_hidden() and page.locator("#model-figure").is_visible()
+    page.wait_for_selector("html[data-model='live']")
+    page.wait_for_selector("#model .socket.fed", timeout=10000)
+    page.click("#model-figure [data-cut]")
+    assert page.locator("#model .tb.joint.cut").count() == 1
+    page.evaluate("document.querySelector('#model svg').dataset.first = '1'")
+    page.select_option("#zone-rule", "through_rooms")  # re-solved: a new model replaces the old one
+    page.wait_for_function("() => { const s = document.querySelector('#model svg'); return s && !s.dataset.first; }")
+    assert page.locator("#model svg").count() == 1
+    page.click("#model-figure [data-cut]")  # one cut, not one per model ever shown
+    assert page.locator("#model .tb.joint.cut").count() == 1
+    page.click("#view-plan")
+    assert page.locator("#canvas").is_visible() and page.locator("#model-figure").is_hidden()
+    assert errors == []
+    page.close()

@@ -52,22 +52,22 @@
 .iso-top { fill: var(--w-top); }
 
 /* Faces split for sorting are stroked in their own tone, so no seam shows between them */
-.wall-face .iso-shade { stroke-width: 0.8px; stroke-linejoin: round; }
-.wall-face .iso-shade[data-shade="0"] { stroke: var(--w0); }
-.wall-face .iso-shade[data-shade="1"] { stroke: var(--w1); }
-.wall-face .iso-shade[data-shade="2"] { stroke: var(--w2); }
-.wall-face .iso-shade[data-shade="3"] { stroke: var(--w3); }
-.wall-face .pane { fill: var(--glass); stroke: var(--glass); stroke-width: 0.8px; stroke-linejoin: round; }
-.glass-top { fill: var(--glass-top); }
+.iso-svg .wall-face .iso-shade { stroke-width: 0.8px; stroke-linejoin: round; }
+.iso-svg .wall-face .iso-shade[data-shade="0"] { stroke: var(--w0); }
+.iso-svg .wall-face .iso-shade[data-shade="1"] { stroke: var(--w1); }
+.iso-svg .wall-face .iso-shade[data-shade="2"] { stroke: var(--w2); }
+.iso-svg .wall-face .iso-shade[data-shade="3"] { stroke: var(--w3); }
+.iso-svg .wall-face .pane { fill: var(--glass); stroke: var(--glass); stroke-width: 0.8px; stroke-linejoin: round; }
+.iso-svg .glass-top { fill: var(--glass-top); }
 
-.plinth .iso-fill { fill: var(--p1); }
-.plinth .iso-shade[data-shade="0"] { fill: var(--p0); }
-.plinth .iso-shade[data-shade="1"] { fill: var(--p1); }
-.plinth .iso-shade[data-shade="2"] { fill: var(--p2); }
-.plinth .iso-shade[data-shade="3"] { fill: var(--p3); }
-.plinth .iso-top { fill: var(--p-top); }
-.slab .iso-fill, .slab .iso-shade { fill: var(--p0); }
-.slab .iso-top { fill: var(--hall); }
+.iso-svg .plinth .iso-fill { fill: var(--p1); }
+.iso-svg .plinth .iso-shade[data-shade="0"] { fill: var(--p0); }
+.iso-svg .plinth .iso-shade[data-shade="1"] { fill: var(--p1); }
+.iso-svg .plinth .iso-shade[data-shade="2"] { fill: var(--p2); }
+.iso-svg .plinth .iso-shade[data-shade="3"] { fill: var(--p3); }
+.iso-svg .plinth .iso-top { fill: var(--p-top); }
+.iso-svg .slab .iso-fill, .iso-svg .slab .iso-shade { fill: var(--p0); }
+.iso-svg .slab .iso-top { fill: var(--hall); }
 
 .iso-line { fill: none; stroke: var(--lo); stroke-width: 0.6px; stroke-linecap: round; stroke-linejoin: round; }
 .iso-line[data-tone="hi"] { stroke: var(--hi); }
@@ -77,61 +77,61 @@
 .iso-dots circle { fill: var(--ink); opacity: 0.5; }
 .iso-halo { fill: #3a3228; opacity: 0.2; filter: blur(12px); transform: translateY(10px); }
 .iso-face-text { fill: var(--mid); font-family: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace; }
-.scale-block { fill: var(--p-top); stroke: none; }
-.scale-block.ink { fill: var(--ink); }
+.iso-svg .scale-block { fill: var(--p-top); stroke: none; }
+.iso-svg .scale-block.ink { fill: var(--ink); }
 
-.room { fill: var(--hall); stroke: var(--lo); stroke-width: 0.6px; }
-.room[data-type="living"] { fill: var(--living); }
-.room[data-type="bedroom"] { fill: var(--bedroom); }
-.room[data-type="kitchen"] { fill: var(--kitchen); }
-.room[data-type="storage"] { fill: var(--storage); }
-.room[data-type="bathroom"] { fill: var(--bathroom); }
-.room[data-type="stair"] { fill: var(--stair); }
-.pattern { fill: none; stroke: var(--ink); stroke-opacity: 0.1; stroke-width: 0.6px; }
-.threshold { fill: #e8dcc6; stroke: var(--lo); stroke-width: 0.6px; }
-.shadow { fill: var(--shade); fill-opacity: 0.15; stroke: none; }
+.iso-svg .room { fill: var(--hall); stroke: var(--lo); stroke-width: 0.6px; }
+.iso-svg .room[data-type="living"] { fill: var(--living); }
+.iso-svg .room[data-type="bedroom"] { fill: var(--bedroom); }
+.iso-svg .room[data-type="kitchen"] { fill: var(--kitchen); }
+.iso-svg .room[data-type="storage"] { fill: var(--storage); }
+.iso-svg .room[data-type="bathroom"] { fill: var(--bathroom); }
+.iso-svg .room[data-type="stair"] { fill: var(--stair); }
+.iso-svg .pattern { fill: none; stroke: var(--ink); stroke-opacity: 0.1; stroke-width: 0.6px; }
+.iso-svg .threshold { fill: #e8dcc6; stroke: var(--lo); stroke-width: 0.6px; }
+.iso-svg .shadow { fill: var(--shade); fill-opacity: 0.15; stroke: none; }
 
-.room-label text { text-anchor: middle; fill: var(--ink); }
-.room-label .name { font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
-.room-label .area { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; fill: var(--mid); }
-.room-label[data-type="bathroom"] .area { fill: var(--ink); }
+.iso-svg .room-label text { text-anchor: middle; fill: var(--ink); }
+.iso-svg .room-label .name { font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+.iso-svg .room-label .area { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; fill: var(--mid); }
+.iso-svg .room-label[data-type="bathroom"] .area { fill: var(--ink); }
 
-.socket-plate .iso-fill, .socket-plate .iso-shade { fill: #e9e4d8; }
-.socket-plate .iso-top { fill: #fbf9f4; }
-.socket-puck .iso-fill, .socket-puck .iso-shade { fill: #dcd5c7; }
-.socket-puck .iso-top { fill: #ffffff; }
-.socket .led { fill: var(--faint); transition: fill 0.35s ease; }
-.model:not(.live) .socket .led { fill: var(--ring); }
-.socket.fed .led { fill: var(--lit); stroke: var(--ink); stroke-width: 0.6px; }
+.iso-svg .socket-plate .iso-fill, .iso-svg .socket-plate .iso-shade { fill: #e9e4d8; }
+.iso-svg .socket-plate .iso-top { fill: #fbf9f4; }
+.iso-svg .socket-puck .iso-fill, .iso-svg .socket-puck .iso-shade { fill: #dcd5c7; }
+.iso-svg .socket-puck .iso-top { fill: #ffffff; }
+.iso-svg .socket .led { fill: var(--faint); transition: fill 0.35s ease; }
+.iso-svg.model:not(.live) .socket .led { fill: var(--ring); }
+.iso-svg .socket.fed .led { fill: var(--lit); stroke: var(--ink); stroke-width: 0.6px; }
 
-.hub-body .iso-fill { fill: #2b2925; }
-.hub-body .iso-shade[data-shade="0"] { fill: #1d1b18; }
-.hub-body .iso-shade[data-shade="1"] { fill: #24221e; }
-.hub-body .iso-shade[data-shade="2"] { fill: #2c2a25; }
-.hub-body .iso-shade[data-shade="3"] { fill: #34312c; }
-.hub-body .iso-top { fill: #3d3a34; }
-.hub .iso-dots circle { fill: #f4f0e6; opacity: 0.6; }
-.hub .port { fill: var(--ring); stroke: #f4f0e6; stroke-width: 0.6px; }
-.hub-label { fill: #f4f0e6; }
+.iso-svg .hub-body .iso-fill { fill: #2b2925; }
+.iso-svg .hub-body .iso-shade[data-shade="0"] { fill: #1d1b18; }
+.iso-svg .hub-body .iso-shade[data-shade="1"] { fill: #24221e; }
+.iso-svg .hub-body .iso-shade[data-shade="2"] { fill: #2c2a25; }
+.iso-svg .hub-body .iso-shade[data-shade="3"] { fill: #34312c; }
+.iso-svg .hub-body .iso-top { fill: #3d3a34; }
+.iso-svg .hub .iso-dots circle { fill: #f4f0e6; opacity: 0.6; }
+.iso-svg .hub .port { fill: var(--ring); stroke: #f4f0e6; stroke-width: 0.6px; }
+.iso-svg .hub-label { fill: #f4f0e6; }
 
-.tb-body { fill: var(--ring); }
-.tb-shine { fill: color-mix(in srgb, var(--ring) 55%, #ffffff); }
-.tb-shade { fill: color-mix(in srgb, var(--ring) 65%, #000000); }
-.tb > .iso-edge { stroke: color-mix(in srgb, var(--ring) 55%, #000000); }
+.iso-svg .tb-body { fill: var(--ring); }
+.iso-svg .tb-shine { fill: color-mix(in srgb, var(--ring) 55%, #ffffff); }
+.iso-svg .tb-shade { fill: color-mix(in srgb, var(--ring) 65%, #000000); }
+.iso-svg .tb > .iso-edge { stroke: color-mix(in srgb, var(--ring) 55%, #000000); }
 .iso-wire-end { fill: var(--paper); stroke: var(--ink); stroke-width: 0.6px; }
 
 /* A cut leg: its joint piece parts, and the two cut ends show in red */
-.cut-end { display: none; fill: color-mix(in srgb, var(--ring) 65%, #000000); stroke: var(--cut); stroke-width: 1px; }
-.tb.cut > .tb-body,
-.tb.cut > .tb-shine,
-.tb.cut > .tb-shade,
-.tb.cut > .iso-edge,
-.tb.cut > .core,
-.tb.cut > .glow { display: none; }
-.tb.cut > .cut-end { display: inline; }
-.tb.on > .iso-edge { stroke: var(--lit); }
+.iso-svg .cut-end { display: none; fill: color-mix(in srgb, var(--ring) 65%, #000000); stroke: var(--cut); stroke-width: 1px; }
+.iso-svg .tb.cut > .tb-body,
+.iso-svg .tb.cut > .tb-shine,
+.iso-svg .tb.cut > .tb-shade,
+.iso-svg .tb.cut > .iso-edge,
+.iso-svg .tb.cut > .core,
+.iso-svg .tb.cut > .glow { display: none; }
+.iso-svg .tb.cut > .cut-end { display: inline; }
+.iso-svg .tb.on > .iso-edge { stroke: var(--lit); }
 
 /* The signal: each cable piece shows the part of the pulse that lies on it */
-.core { fill: none; stroke: var(--lit); stroke-width: 2px; stroke-linecap: round; visibility: hidden; }
-.glow { fill: none; stroke: var(--lit); stroke-width: 6px; stroke-linecap: round; opacity: 0.35; visibility: hidden; }
-.hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
+.iso-svg .core { fill: none; stroke: var(--lit); stroke-width: 2px; stroke-linecap: round; visibility: hidden; }
+.iso-svg .glow { fill: none; stroke: var(--lit); stroke-width: 6px; stroke-linecap: round; opacity: 0.35; visibility: hidden; }
+.iso-svg .hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }

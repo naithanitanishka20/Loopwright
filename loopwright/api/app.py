@@ -50,6 +50,7 @@ class SolveRequest(BaseModel):
     source: Source
     edits: list[dict] = Field(default_factory=list)
     settings: dict = Field(default_factory=dict)
+    model: bool = False  # also send the design as the site's scale model, for the playground
 
 
 class ValidateRequest(SolveRequest):
@@ -119,7 +120,7 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
 
     @app.get("/app/" if site_dir else "/", response_class=HTMLResponse)
     def index():
-        return render_app()
+        return render_app(site=bool(site_dir))
 
     @app.get("/api/plans")
     def plans():
@@ -136,6 +137,11 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
         body = viewer_data(model, out)
         body.update(svg=render_svg(model, out), explain=explain_hubs(out), cuts=cut_analysis(out),
                     installer=installer_data(out, door_parts(plan)))
+        if req.model:
+            from loopwright.figure import model_svg
+
+            svg, meta = model_svg(model, out, live=True)
+            body["model"] = {"svg": svg, "rings": meta["rings"]}
         return body
 
     @app.post("/api/validate")
@@ -185,14 +191,20 @@ def create_app(data_path=None, *, max_upload_mb=20, allowed_hosts=("127.0.0.1", 
                 return read_image(raw, m_per_px=m_per_px, area_m2=area_m2)  # refuses an image too big to process
         raise HTTPException(400, "upload a PNG, JPEG, PDF or DXF file")
 
-    if site_dir:  # the product site in front and the app behind /app/, as on a hosted copy
+    if site_dir:  # the product site in front and the app, its playground, behind /app/, as on a hosted copy
         site = pathlib.Path(site_dir)
-        front = (site / "index.html").read_text(encoding="utf-8").replace(
-            "</head>", '<meta name="loopwright:app" content="/app/">\n</head>', 1)
+        pages = {p.name: p.read_text(encoding="utf-8").replace("</head>", '<meta name="loopwright:app" content="/app/">\n</head>', 1)
+                 for p in site.glob("*.html")}  # every page knows the app is here
 
         @app.get("/", response_class=HTMLResponse)
         def front_page():
-            return front
+            return pages["index.html"]
+
+        @app.get("/{name}.html", response_class=HTMLResponse)
+        def page(name: str):
+            if f"{name}.html" not in pages:
+                raise HTTPException(404, "no such page")
+            return pages[f"{name}.html"]
 
         @app.get("/app", include_in_schema=False)
         def to_app():

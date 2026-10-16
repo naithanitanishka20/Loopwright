@@ -1,70 +1,178 @@
-"""The demo app served by loopwright serve: one page, no external files, talking only to the local API.
+"""The app served by loopwright serve, and the product site's playground when served with the site.
 
-Sources: a ResPlan plan by id, an uploaded image, PDF or DXF, or rooms drawn on
-a grid. Every change (door removed, rooms connected, room type changed, zone
-rule switched) is re-solved by the server, so the drawing, the validator and
-the explanation always describe the same design. Text from the server is only
-ever written with textContent.
+One page, talking only to the API. Sources: a ResPlan plan by id, an uploaded image, PDF or DXF, or
+rooms drawn on a grid. Every change (door removed, rooms connected, room type changed, zone rule
+switched) is re-solved by the server, so the drawing, the validator and the explanation always
+describe the same design. Served with the site (`loopwright serve --site`), the page is the site's
+playground: the site's fonts and links, and a model view that shows the design as the site's scale
+model, signal and all. Text from the server is only ever written with textContent; the model's SVG is
+parsed as SVG, never written as HTML.
 """
-from loopwright.output.viewer import STYLE
+
+LOOP = ("M573.0 265.0C556.2 283.2 540.1 301.7 522.7 319.5C505.3 337.2 487.9 355.2 468.6 371.6C449.3 387.9 429.3 404.3 "
+        "407.0 417.6C384.6 430.8 360.6 443.8 334.7 451.2C308.9 458.6 280.0 464.5 251.8 462.2C223.6 459.9 191.7 453.0 165.6 "
+        "437.3C139.6 421.6 111.7 396.7 95.4 368.0C79.0 339.3 67.5 299.3 67.5 265.0C67.5 230.7 79.0 190.7 95.4 162.0C111.7 "
+        "133.3 139.6 108.4 165.6 92.7C191.7 77.0 223.6 70.1 251.8 67.8C280.0 65.5 308.9 71.4 334.7 78.8C360.6 86.2 384.6 "
+        "99.2 407.0 112.4C429.3 125.7 449.3 142.1 468.6 158.4C487.9 174.8 505.3 192.8 522.7 210.5C540.1 228.3 556.2 246.8 "
+        "573.0 265.0C589.8 283.2 605.9 301.7 623.3 319.5C640.7 337.2 658.1 355.2 677.4 371.6C696.7 387.9 716.7 404.3 739.0 "
+        "417.6C761.4 430.8 785.4 443.8 811.3 451.2C837.1 458.6 866.0 464.5 894.2 462.2C922.4 459.9 954.3 453.0 980.4 "
+        "437.3C1006.4 421.6 1034.3 396.7 1050.6 368.0C1067.0 339.3 1078.5 299.3 1078.5 265.0C1078.5 230.7 1067.0 190.7 "
+        "1050.6 162.0C1034.3 133.3 1006.4 108.4 980.4 92.7C954.3 77.0 922.4 70.1 894.2 67.8C866.0 65.5 837.1 71.4 811.3 "
+        "78.8C785.4 86.2 761.4 99.2 739.0 112.4C716.7 125.7 696.7 142.1 677.4 158.4C658.1 174.8 640.7 192.8 623.3 "
+        "210.5C605.9 228.3 589.8 246.8 573.0 265.0Z")  # the logo's loop, as on the site
+GEAR = ("M19.38 10.17 L21.91 10.67 L21.91 13.33 L19.38 13.83 L18.51 15.92 L19.95 18.07 L18.07 19.95 L15.92 18.51 L13.83 "
+        "19.38 L13.33 21.91 L10.67 21.91 L10.17 19.38 L8.08 18.51 L5.93 19.95 L4.05 18.07 L5.49 15.92 L4.62 13.83 L2.09 "
+        "13.33 L2.09 10.67 L4.62 10.17 L5.49 8.08 L4.05 5.93 L5.93 4.05 L8.08 5.49 L10.17 4.62 L10.67 2.09 L13.33 2.09 "
+        "L13.83 4.62 L15.92 5.49 L18.07 4.05 L19.95 5.93 L18.51 8.08Z")
 
 
-def render_app():
-    return PAGE
+def render_app(site=False):
+    """The page; with `site`, the site's playground: its fonts and links, and the model view."""
+    parts = SITE if site else ALONE
+    page = PAGE
+    for key, value in parts.items():
+        page = page.replace("{{" + key + "}}", value)
+    return page
+
+
+SITE = {
+    "HEAD": """<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/figure.css">
+<script src="/model.js" defer></script>
+<style>
+@font-face { font-family: "Instrument Sans"; src: url("/assets/fonts/InstrumentSans-400-700.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("/assets/fonts/IBMPlexMono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("/assets/fonts/IBMPlexMono-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Outfit"; src: url("/assets/fonts/Outfit-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+</style>""",
+    "HOME": "/",
+    "NAV": f"""<nav class="pane links" aria-label="The site">
+    <a href="/">Overview</a>
+    <a href="/#features">Features</a>
+    <a href="https://github.com/naithanitanishka20/Loopwright">GitHub</a>
+    <a class="gear" href="/settings.html" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="{GEAR}" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
+  </nav>""",
+    "VIEWS": """<div class="views" role="group" aria-label="View">
+        <button type="button" id="view-plan" aria-pressed="true">Plan</button><button type="button" id="view-model" aria-pressed="false">Model</button>
+      </div>""",
+    "MODEL": """<figure class="plate-figure" id="model-figure" hidden><div class="plate has-control"></div></figure>
+    <p class="sr" aria-live="polite" id="model-live"></p>""",
+}
+ALONE = {"HEAD": '<link rel="icon" href="data:,">', "HOME": "#app", "NAV": "", "VIEWS": "", "MODEL": ""}
 
 
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Loopwright</title><link rel="icon" href="data:,">
-<style>""" + STYLE + """
+<title>Loopwright playground</title>
+{{HEAD}}
+<style>
+:root {
+  --paper: #ece6d8; --sheet: #f6f2e9; --panel: #f2ede2; --ink: #23211d; --ink-2: #4a453d; --graphite: #6b665c;
+  --rule: #cdc4b2; --line: #3a3631; --lift: rgba(35, 33, 29, 0.14); --blue: #004af0; --red: #d23b2a; --ok: #1f7a4a;
+  --glass: #bcd6e5; --hall: #e3dccd;
+  --sans: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
 [hidden] { display: none !important; }
-main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 14px; padding: 14px 16px; align-items: start; }
+body {
+  margin: 0; color: var(--ink); font: 400 15px/1.5 var(--sans); background-color: var(--paper);
+  background-image: linear-gradient(rgba(35, 33, 29, 0.075) 1px, transparent 1px), linear-gradient(90deg, rgba(35, 33, 29, 0.075) 1px, transparent 1px),
+    linear-gradient(rgba(35, 33, 29, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(35, 33, 29, 0.035) 1px, transparent 1px);
+  background-size: 60px 60px, 60px 60px, 12px 12px, 12px 12px; background-position: -1px -1px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--blue); }
+.sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px 0; }
+.pane { display: flex; align-items: stretch; height: 44px; border: 1px solid var(--line); background: var(--sheet); box-shadow: 3px 3px 0 var(--lift); }
+.pane > * + * { border-left: 1px solid var(--line); }
+.logo { display: flex; align-items: center; padding: 0 14px; background: #000; color: #fff; text-decoration: none; }
+.wm { display: inline-flex; align-items: center; font: 700 20px/1 "Outfit", var(--sans); letter-spacing: -0.01em; white-space: nowrap; }
+.wm .loop { width: 1.152em; height: 0.52em; margin: 0 -0.02em 0 0.01em; }
+.loop path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.title { display: flex; align-items: center; padding: 0 14px; font: 500 13px/1 var(--mono); }
+.links a { display: flex; align-items: center; padding: 0 14px; color: var(--ink); font: 500 13px/1 var(--mono); text-decoration: none; white-space: nowrap; }
+.links a:hover { background: var(--ink); color: var(--sheet); }
+.gear { justify-content: center; width: 44px; padding: 0 !important; }
+.gear svg { width: 20px; height: 20px; }
+.strip { padding: 12px 16px 0; font: 500 13px/1.4 var(--mono); color: var(--ink-2); min-height: 1.4em; }
+.strip b { color: var(--ink); font-weight: 500; }
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; gap: 16px; padding: 14px 16px 32px; align-items: start; }
 @media (max-width: 1200px) { main { grid-template-columns: minmax(0, 1fr) 320px; } #source { grid-column: 1 / -1; } }
-@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
-section, .panel { background: var(--sheet); border: 1px solid var(--rule); padding: 10px 12px; min-width: 0; }
-aside { display: grid; gap: 12px; min-width: 0; }
-h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink2); margin: 0 0 6px; }
-ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+@media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } .links a:not(.gear) { display: none; } }
+section, .panel { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); background: var(--sheet); box-shadow: 3px 3px 0 var(--lift); }
+aside { display: grid; gap: 14px; min-width: 0; }
+h2 { margin: 0 0 8px; color: var(--graphite); font: 500 12.5px/1.3 var(--mono); }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 14px; }
 button, select, input { font: inherit; color: var(--ink); }
-button { background: var(--paper); border: 1px solid var(--rule); padding: 3px 10px; cursor: pointer; }
-button[aria-pressed="true"], button[aria-selected="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
-button:disabled { opacity: .5; cursor: default; }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--hl); outline-offset: 1px; }
-input[type=number], input[inputmode] { width: 110px; padding: 2px 6px; background: var(--sheet); border: 1px solid var(--rule); }
-.tabs, .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
-.pane { display: grid; gap: 8px; }
-.hint { color: var(--ink2); font-size: 12px; margin: 0; }
-#stage { display: grid; gap: 8px; min-width: 0; }
-#toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-#canvas { background: var(--sheet); border: 1px solid var(--rule); }
-svg { width: 100%; height: auto; display: block; touch-action: none; }
-.room { stroke: none; } .room.flag { stroke: var(--bad); stroke-width: var(--u2); stroke-dasharray: var(--u4) var(--u2); }
-.room.sel { stroke: var(--hl); stroke-width: var(--u3); }
-.wall { fill: var(--ink); } .door { fill: var(--sheet); } .window { fill: var(--sheet); stroke: var(--ink2); }
+button { padding: 6px 10px; border: 1px solid var(--line); background: var(--sheet); font: 500 13px/1 var(--mono); cursor: pointer; box-shadow: 2px 2px 0 var(--lift); }
+button:hover:not(:disabled) { background: var(--ink); color: var(--sheet); }
+button[aria-pressed="true"], button[aria-selected="true"] { background: var(--ink); color: var(--sheet); }
+button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+#load-id, #import, #draw-solve { background: var(--blue); border-color: var(--blue); color: #fff; }
+select, input[type=number], input[inputmode] { padding: 4px 6px; border: 1px solid var(--line); background: #fbf9f4; font: 400 13px/1.3 var(--mono); }
+input[type=number], input[inputmode] { width: 110px; }
+label { font-size: 14px; }
+.tabs, .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.pane-body { display: grid; gap: 10px; }
+.hint { margin: 0; color: var(--graphite); font-size: 13px; }
+#stage { display: grid; gap: 10px; min-width: 0; }
+#toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.views { display: inline-flex; margin-right: 6px; }
+.views button { box-shadow: none; }
+.views button + button { border-left: 0; }
+#canvas { border: 1px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--lift); }
+#plan { width: 100%; height: auto; display: block; touch-action: none; }
+.room { stroke: var(--ink); stroke-opacity: 0.25; }
+.room.flag { stroke: var(--red); stroke-opacity: 1; stroke-width: var(--u2); stroke-dasharray: var(--u4) var(--u2); }
+.room.sel { stroke: var(--blue); stroke-opacity: 1; stroke-width: var(--u3); }
+.wall { fill: var(--ink); } .door { fill: var(--panel); } .window { fill: var(--glass); stroke: var(--ink-2); }
 .door-hit { fill: transparent; stroke: transparent; cursor: pointer; }
-.editing .door-hit:hover { stroke: var(--hl); }
+.editing .door-hit:hover { stroke: var(--blue); }
 .editing .room { cursor: pointer; }
 .leg { fill: none; stroke-linejoin: round; stroke-linecap: round; }
 .leg-hit { fill: none; stroke: transparent; pointer-events: none; }
 .cutting .leg-hit { pointer-events: stroke; cursor: crosshair; }
 .nums, .editing .leg, .editing .node, .editing .hub, .cutting .node, .cutting .hub { pointer-events: none; }
-.leg.hl { stroke: var(--hl) !important; filter: drop-shadow(0 0 2px var(--hl)); }
-.leg.cut { stroke: var(--bad) !important; stroke-dasharray: var(--u3) var(--u2); }
-.node { fill: var(--sheet); } .node.rev { stroke-dasharray: var(--u2) var(--u1); }
-.lbl { fill: var(--ink); font-family: ui-monospace, Consolas, monospace; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.lbl.halo { paint-order: stroke; stroke: var(--sheet); stroke-linejoin: round; }
-.grid line { stroke: var(--rule); } .grid line.major { stroke: var(--ink2); stroke-opacity: .35; }
-.sketch { fill: var(--grey); stroke: var(--ink); } .ghost { fill: none; stroke: var(--hl); stroke-dasharray: .2 .1; }
-#rules li { display: grid; grid-template-columns: 70px 40px minmax(0, 1fr); gap: 6px; align-items: baseline; font-size: 12px; }
-#rules button { font: 600 12px ui-monospace, Consolas, monospace; padding: 1px 6px; }
-#rules .pass .state { color: var(--ok); } #rules .fail .state { color: var(--bad); font-weight: 700; } #rules .skip .state { color: var(--ink2); }
-.detail { color: var(--ink2); overflow-wrap: anywhere; }
-#status { min-height: 1.4em; color: var(--ink2); } #status.err { color: var(--bad); font-weight: 600; }
+.leg.hl { stroke: var(--blue) !important; filter: drop-shadow(0 0 2px var(--blue)); }
+.leg.cut { stroke: var(--red) !important; stroke-dasharray: var(--u3) var(--u2); }
+.node { fill: #fbf9f4; } .node.rev { stroke-dasharray: var(--u2) var(--u1); }
+.lbl { fill: var(--ink); font-family: var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.lbl.halo { paint-order: stroke; stroke: #fbf9f4; stroke-linejoin: round; }
+.grid line { stroke: var(--rule); } .grid line.major { stroke: var(--ink-2); stroke-opacity: 0.35; }
+.sketch { fill: var(--hall); stroke: var(--ink); } .ghost { fill: none; stroke: var(--blue); stroke-dasharray: .2 .1; }
+#rules li { display: grid; grid-template-columns: 70px 44px minmax(0, 1fr); gap: 6px; align-items: baseline; font-size: 13px; }
+#rules button { padding: 2px 6px; font-size: 12px; box-shadow: none; }
+#rules .pass .state { color: var(--ok); } #rules .fail .state { color: var(--red); font-weight: 700; } #rules .skip .state { color: var(--graphite); }
+.detail { color: var(--graphite); overflow-wrap: anywhere; }
+#status { min-height: 1.4em; color: var(--graphite); font: 400 13px/1.4 var(--mono); } #status.err { color: var(--red); font-weight: 500; }
 #draw-rooms li, #draw-doors li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.plate-figure { margin: 0; }
+.plate { position: relative; padding: 46px 14px 58px; border: 1px solid var(--line); background: var(--panel); box-shadow: 3px 3px 0 var(--lift); overflow: hidden; }
+.corners > span { position: absolute; color: var(--graphite); font: 500 12.5px/1.25 var(--mono); pointer-events: none; }
+.corners > [data-corner="fig"] { top: 15px; left: 16px; color: var(--ink); }
+.corners > [data-corner="title"] { top: 15px; right: 16px; color: var(--ink); }
+.corners > [data-corner="hint"] { bottom: 19px; left: 140px; }
+.corners > [data-corner="readout"] { bottom: 19px; right: 16px; color: var(--ink); text-align: right; }
+.plate-control { position: absolute; left: 16px; bottom: 13px; }
+.plate-control[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+.stage { outline: none; }
+.stage:focus-visible { outline: 2px solid var(--blue); outline-offset: 6px; }
+@media (max-width: 760px) { .corners > [data-corner="hint"] { display: none; } }
 @media (prefers-reduced-motion: reduce) { .leg { transition: none !important; } }
 </style></head>
 <body>
-<header><h1>Loopwright</h1><span id="metrics"></span></header>
+<header class="top">
+  <div class="pane brand">
+    <a class="logo" href="{{HOME}}" aria-label="Loopwright"><span class="wm" aria-hidden="true">L<svg class="loop" viewBox="0 0 1152 520" focusable="false"><defs><linearGradient id="loop-gradient" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="1136" y2="0"><stop offset="0" stop-color="#05F7FF"/><stop offset=".5" stop-color="#01BFFF"/><stop offset="1" stop-color="#004AF0"/></linearGradient></defs><path d="{{LOOP}}" stroke="url(#loop-gradient)" stroke-width="115"/></svg>pwright</span></a>
+    <span class="title">Playground</span>
+  </div>
+  {{NAV}}
+</header>
+<div class="strip"><span id="metrics"></span></div>
 <main id="app">
   <section id="source" aria-label="Plan source">
     <div class="tabs" role="tablist">
@@ -72,12 +180,12 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
       <button type="button" role="tab" id="tab-upload" aria-controls="pane-upload">Upload</button>
       <button type="button" role="tab" id="tab-draw" aria-controls="pane-draw">Draw</button>
     </div>
-    <div class="pane" id="pane-id" role="tabpanel">
+    <div class="pane-body" id="pane-id" role="tabpanel">
       <label>ResPlan plan <input id="plan-id" inputmode="numeric" value="16448"></label>
       <div class="row"><button type="button" id="load-id">Solve</button></div>
       <p class="hint" id="dataset-note"></p>
     </div>
-    <div class="pane" id="pane-upload" role="tabpanel" hidden>
+    <div class="pane-body" id="pane-upload" role="tabpanel" hidden>
       <input type="file" id="file" accept=".png,.jpg,.jpeg,.bmp,.webp,.pdf,.dxf" aria-label="Plan file">
       <label>Metres per pixel <input id="m-per-px" type="number" step="any" min="0"></label>
       <label>or flat area, m² <input id="area" type="number" step="any" min="0"></label>
@@ -85,7 +193,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
       <div class="row"><button type="button" id="import">Import and solve</button></div>
       <p class="hint">DXF: rooms on a ROOMS layer with a type label inside each, doors on a DOORS layer. Images and PDFs: clean, straight-on drawings; check the room types afterwards.</p>
     </div>
-    <div class="pane" id="pane-draw" role="tabpanel" hidden>
+    <div class="pane-body" id="pane-draw" role="tabpanel" hidden>
       <p class="hint">Drag on the grid to add a room (snaps to 0.5 m). Then tick the doors and solve.</p>
       <h2>Rooms</h2><ul id="draw-rooms"></ul>
       <h2>Doors</h2><ul id="draw-doors"></ul>
@@ -94,6 +202,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
   </section>
   <div id="stage">
     <div id="toolbar" role="toolbar" aria-label="Design tools">
+      {{VIEWS}}
       <button type="button" id="mode-view" aria-pressed="true">View</button>
       <button type="button" id="mode-edit" aria-pressed="false">Edit</button>
       <button type="button" id="mode-cut" aria-pressed="false">Cut cable</button>
@@ -105,6 +214,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     </div>
     <div id="status" role="status" aria-live="polite"></div>
     <div id="canvas"><svg id="plan" role="img" aria-label="Floor plan with hubs, nodes and cable rings"></svg></div>
+    {{MODEL}}
   </div>
   <aside>
     <section><h2>Why this many hubs?</h2><p id="explain" class="hint">Solve a plan to see.</p></section>
@@ -125,11 +235,12 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
 <script>
 (function () {
   "use strict";
-  var NS = "http://www.w3.org/2000/svg", COLOURS = ["#2A78D6", "#EB6834", "#1BAF7A"];
+  var NS = "http://www.w3.org/2000/svg", RINGS = ["#004AF0", "#23211D", "#8A3FD1"];
+  var FILL = { living: "#F29E57", bedroom: "#97DDFF", kitchen: "#BBED7E", storage: "#D79BD6", bathroom: "#84888C", stair: "#CFC8B9" };
   var TYPES = ["living", "bedroom", "kitchen", "storage", "bathroom", "stair"];
   var GRID_W = 20, GRID_H = 14, SNAP = 0.5;
-  var state = { source: null, edits: [], settings: { zone_link: "strict" }, data: null, mode: "view",
-                tab: "id", cut: null, draw: { rooms: [], doors: {} }, drag: null };
+  var state = { source: null, edits: [], settings: { zone_link: "strict" }, data: null, mode: "view", view: "plan",
+                tab: "id", cut: null, draw: { rooms: [], doors: {} }, drag: null, model: null };
   var $ = function (id) { return document.getElementById(id); };
   var svg = $("plan");
 
@@ -161,13 +272,14 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
   }
 
   // ---------- solving ----------
-  function request() { return { source: state.source, edits: state.edits, settings: state.settings }; }
+  function request() { return { source: state.source, edits: state.edits, settings: state.settings, model: state.view === "model" }; }
   function solve() {
     if (!state.source) return Promise.resolve();
     status("Solving…");
     return post("/api/solve", request()).then(function (d) {
       state.data = d; state.cut = null;
       render();
+      if (state.view === "model") renderModel();
       status("Solved in " + d.design.metrics.runtime_s + " s.");
     }).catch(function (e) {
       if (state.edits.length) state.edits.pop();
@@ -181,11 +293,11 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
   function colourOf(hubs) {
     var c = {};
     hubs.forEach(function (hb, i) {
-      if (hubs.length <= COLOURS.length) { c[hb.id] = COLOURS[i]; return; }
+      if (hubs.length <= RINGS.length) { c[hb.id] = RINGS[i]; return; }
       var living = hb.zone.some(function (r) { return r.indexOf("living") === 0; });
-      c[hb.id] = living ? COLOURS[0] : (hb.zone.length === 1 ? COLOURS[1] : COLOURS[2]);
+      c[hb.id] = living ? RINGS[0] : (hb.zone.length === 1 ? RINGS[1] : RINGS[2]);
     });
-    return function (hub) { return c[hub] || COLOURS[0]; };
+    return function (hub) { return c[hub] || RINGS[0]; };
   }
   function render() {
     var D = state.data, X = D.design;
@@ -197,8 +309,8 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     var colour = colourOf(X.hubs), flagged = (D.explain.rooms || []);
     var gRooms = el("g", { id: "layer-rooms" }, svg);
     D.rooms.forEach(function (r) {
-      var p = el("path", { d: pathD(r.polys), "data-room": r.id, fill: r.hub ? colour(r.hub) : "var(--grey)",
-                           "fill-opacity": r.hub ? 0.22 : 1, "class": "room" + (flagged.indexOf(r.id) >= 0 ? " flag" : "") }, gRooms);
+      var p = el("path", { d: pathD(r.polys), "data-room": r.id, fill: FILL[r.type] || "var(--hall)", "stroke-width": u * 0.3,
+                           "class": "room" + (flagged.indexOf(r.id) >= 0 ? " flag" : "") }, gRooms);
       p.addEventListener("click", function () { if (state.mode === "edit") selectRoom(r.id); });
       var t = el("title", {}, p); t.textContent = r.id + " · " + r.type + " · " + r.area + " m²";
     });
@@ -252,6 +364,47 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     panels();
   }
 
+  // ---------- the model view: the design as the site's scale model (model.js runs its signal) ----------
+  function renderModel() {
+    var figure = $("model-figure"), M = state.data && state.data.model;
+    if (!figure) return;
+    if (state.model) { state.model.stop(); state.model = null; }
+    var plate = figure.querySelector(".plate");
+    clear(plate);
+    if (!M) return;
+    var X = state.data.design, corners = document.createElement("div");
+    corners.className = "corners"; corners.setAttribute("aria-hidden", "true");
+    [["fig", "Model"], ["title", "Plan " + X.plan_id + ", " + X.rings.length + (X.rings.length === 1 ? " ring" : " rings")],
+     ["hint", "Click a cable to cut it"], ["readout", ""]].forEach(function (c) {
+      var span = text("span", c[1], corners);
+      span.setAttribute("data-corner", c[0]);
+      if (c[0] === "readout") span.setAttribute("data-readout", "");
+    });
+    plate.appendChild(corners);
+    var stage = document.createElement("div");
+    stage.className = "stage"; stage.id = "model"; stage.tabIndex = 0; stage.setAttribute("role", "group");
+    stage.setAttribute("aria-label", "Scale model of the design. Left and right arrows pick a cable leg, Enter cuts or rejoins it, Escape rejoins every leg.");
+    var parsed = new DOMParser().parseFromString(M.svg, "image/svg+xml").documentElement;
+    stage.appendChild(document.importNode(parsed, true));
+    plate.appendChild(stage);
+    var cut = text("button", "Cut a leg", plate, "plate-control");
+    cut.type = "button"; cut.setAttribute("aria-pressed", "false"); cut.setAttribute("data-cut", "");
+    if (M.rings.length && window.loopwrightModel) state.model = window.loopwrightModel(stage, stage.querySelector("svg"), M.rings);
+    else cut.disabled = true;
+  }
+  function setView(view) {
+    if (!$("model-figure")) return;
+    state.view = view;
+    $("view-plan").setAttribute("aria-pressed", String(view === "plan"));
+    $("view-model").setAttribute("aria-pressed", String(view === "model"));
+    $("canvas").hidden = view === "model";
+    $("model-figure").hidden = view !== "model";
+    if (view === "model" && state.mode !== "view") setMode("view");
+    if (view === "model" && state.data) {
+      if (state.data.model) renderModel(); else solve();
+    }
+  }
+
   function panels() {
     var D = state.data, X = D.design, m = X.metrics, metrics = $("metrics");
     clear(metrics);
@@ -275,7 +428,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
       var li = document.createElement("li");
       li.className = c.pass === true ? "pass" : (c.pass === false ? "fail" : "skip");
       var btn = text("button", c.id, li); btn.type = "button"; btn.setAttribute("data-rule", c.id);
-      btn.addEventListener("click", function () { highlight(c.where); });
+      btn.addEventListener("click", function () { setView("plan"); highlight(c.where); });
       text("span", c.pass === true ? "pass" : (c.pass === false ? "FAIL" : "skip"), li, "state");
       text("span", c.detail || "", li, "detail");
       rules.appendChild(li);
@@ -311,6 +464,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     $("edit-panel").hidden = mode !== "edit";
     $("cut-panel").hidden = mode !== "cut";
     if (mode !== "cut") state.cut = null;
+    if (mode !== "view" && state.view === "model") setView("plan");
     if (state.data && state.tab !== "draw") render();
   }
   function selectRoom(id) {
@@ -345,7 +499,7 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
       $("tab-" + t).setAttribute("aria-selected", String(t === tab));
       $("pane-" + t).hidden = t !== tab;
     });
-    if (tab === "draw") drawGrid(); else if (state.data) render(); else clear(svg);
+    if (tab === "draw") { setView("plan"); drawGrid(); } else if (state.data) render(); else clear(svg);
   }
   function startFrom(source, notes) {
     state.source = source; state.edits = [];
@@ -405,7 +559,8 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
     for (var y = 0; y <= GRID_H; y += SNAP) el("line", { x1: 0, y1: y, x2: GRID_W, y2: y, "class": y % 1 === 0 ? "major" : "", "stroke-width": 0.02 }, g);
     state.draw.rooms.forEach(function (r, i) {
       var q = r.rect;
-      el("rect", { x: q[0], y: q[1], width: q[2] - q[0], height: q[3] - q[1], "class": "sketch", "stroke-width": 0.06, "data-sketch-room": i }, svg);
+      el("rect", { x: q[0], y: q[1], width: q[2] - q[0], height: q[3] - q[1], "class": "sketch", fill: FILL[r.type],
+                   "stroke-width": 0.06, "data-sketch-room": i }, svg);
       el("text", { x: (q[0] + q[2]) / 2, y: (q[1] + q[3]) / 2, "class": "lbl", "font-size": 0.45 }, svg).textContent = roomLabel(i);
     });
     var ghost = el("rect", { "class": "ghost", "stroke-width": 0.06, visibility: "hidden" }, svg);
@@ -500,6 +655,10 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
   $("draw-solve").addEventListener("click", solveSketch);
   $("draw-clear").addEventListener("click", function () { state.draw = { rooms: [], doors: {} }; drawGrid(); });
   ["view", "edit", "cut"].forEach(function (m) { $("mode-" + m).addEventListener("click", function () { setMode(m); }); });
+  if ($("view-plan")) {
+    $("view-plan").addEventListener("click", function () { setView("plan"); });
+    $("view-model").addEventListener("click", function () { setView("model"); });
+  }
   $("zone-rule").addEventListener("change", function () { state.settings.zone_link = $("zone-rule").value; solve(); });
   $("undo").addEventListener("click", function () { state.edits.pop(); solve(); });
   $("reset").addEventListener("click", function () { state.edits = []; solve(); });
@@ -527,4 +686,4 @@ svg { width: 100%; height: auto; display: block; touch-action: none; }
 })();
 </script>
 </body></html>
-"""
+""".replace("{{LOOP}}", LOOP)

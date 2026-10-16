@@ -321,6 +321,14 @@ h3 {
   color: var(--sheet);
 }
 
+.links a.playground {
+  color: var(--blue);
+}
+
+.links a.playground:hover {
+  color: var(--sheet);
+}
+
 .gear {
   justify-content: center;
   width: var(--pane-h);
