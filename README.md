@@ -46,7 +46,7 @@ loopwright serve                                     # http://127.0.0.1:8000/
 
 A link can open the app in one mode: `http://127.0.0.1:8000/#edit`, `#cut`, `#installer`, `#draw`, `#upload` or `#dxf`.
 
-The server listens on 127.0.0.1 only and refuses requests addressed to any other host.
+The server listens on 127.0.0.1 and refuses requests addressed to any other host unless `--allow-host` names it (a hosted copy's public domain, below).
 
 ### DXF layer convention
 
@@ -56,7 +56,19 @@ The server listens on 127.0.0.1 only and refuses requests addressed to any other
 
 ## Product site
 
-`site/` is a static site about Loopwright: open `site/index.html` straight from disk, or publish the folder with GitHub Pages. Its figures are isometric scale models of solved ResPlan plans, built from the solver's own output by `loopwright/figure.py`: in the first, a signal runs round each ring and any leg can be cut. Every number comes from the batch records in `bench/`, and `settings.html` lists every setting with its default. `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. The pages, `styles.css`, `figure.css` and `main.js` are written by hand; `tests/unit/test_site_page.py` fails if a page's figures or settings drift from `site/data.js`.
+`site/` is a static site about Loopwright, drawn like an installer's working drawing: open `site/index.html` straight from disk, publish the folder on any static host, or serve it with the app (below). Its figures are isometric architectural models of solved ResPlan plans, built from the solver's own output by `loopwright/figure.py`: raised walls with the doors open and the windows glazed, rooms coloured by type and labelled with their name and area, one sun's shadows, and each ring's cable in its hub's colour. In the first, a signal runs round each ring and any leg can be cut. Every number comes from the batch records in `bench/`, and `settings.html` lists every setting with its default. `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. The pages, `styles.css`, `figure.css` and `main.js` are written by hand; `tests/unit/test_site_page.py` fails if a page's figures or settings drift from `site/data.js`.
+
+`loopwright serve --site site` puts the site at `/` and the app at `/app/`, and the site's "Open in the app" buttons then open that app instead of one on the visitor's machine.
+
+## Hosting on Railway
+
+The repository carries a `Dockerfile` and `railway.json` for one hosted service, the site in front and the app behind it.
+
+1. In Railway, create a project from this GitHub repository. Railway builds the `Dockerfile`: it installs the package, downloads ResPlan (checked against its pinned SHA-256) and keeps the test split and the three plans the site opens (`scripts/hosted_plans.py`), about 150 MB in memory instead of 1.4 GB for all 17,000.
+2. Under the service's networking settings, generate a public domain. Railway passes it to the server as `RAILWAY_PUBLIC_DOMAIN`, and the server answers to it and to Railway's health check.
+3. Every push to `main` deploys again.
+
+Hosted, the app solves any plan of the test split; uploads stay limited to 20 MB and plans to 12 eligible rooms, and nothing a visitor sends is stored.
 
 ## Command line
 
@@ -90,6 +102,7 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/api/` | The local server behind the app |
 | `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |
 | `loopwright/site.py`, `figure.py`, `iso.py`, `site/` | The product site: scale-model figures (an isometric camera and measured painter's order in `iso.py`), charts, figures and settings, and the hand-written pages |
+| `Dockerfile`, `railway.json`, `scripts/hosted_plans.py` | The hosted service: the site at `/`, the app at `/app/`, and the plans it serves |
 | `bench/` | Batch records (`.jsonl`) and reports for every ResPlan split, and `results.md` |
 | `docs/` | Assumptions, schema, testing playbook, demo script, phase notes, figures |
 
