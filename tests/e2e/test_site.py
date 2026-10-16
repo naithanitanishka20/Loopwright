@@ -1,7 +1,7 @@
 """The product site in a real browser: it loads clean, the scale model runs its signal and can be cut by
-pointer, keyboard or button, the features menu and the settings page work, the comparisons answer the
-pointer and the keys, the copy buttons work, and it fits a phone. Served over HTTP the way GitHub Pages
-serves it, and once opened straight from disk."""
+pointer, keyboard or button, the features menu, the settings gear and the How it works answers work, the
+comparisons answer the pointer and the keys, the copy buttons work, and it fits a phone. Served over HTTP
+the way a static host serves it, once opened straight from disk, and once as the hosted app serves it."""
 import functools
 import http.server
 import json
@@ -79,7 +79,7 @@ def test_both_pages_load_every_asset_without_an_error(visit):
         walk(page)
         broken = page.evaluate("[...document.images].filter(i => !i.complete || !i.naturalWidth).map(i => i.src)")
         assert broken == [] and problems == [], path
-        assert page.evaluate("document.fonts.check('700 16px Outfit')")
+        assert page.evaluate("""document.fonts.check('700 16px Outfit') && document.fonts.check('600 16px "Instrument Sans"')""")
 
 
 def test_the_model_runs_a_signal_round_the_ring_and_lights_each_socket(visit):
@@ -146,7 +146,7 @@ def test_reduced_motion_shows_every_socket_fed_and_still_cuts(visit):
     assert page.locator("#fig-1 [data-readout]").inner_text().endswith("sockets fed")
     page.click("[data-cut]")
     assert page.locator("#fig-1 [data-readout]").inner_text().endswith("every socket still fed")
-    assert page.locator(".wm .loop path").evaluate("p => getComputedStyle(p).animationName") == "none"
+    assert page.locator(".top .wm .loop path").evaluate("p => getComputedStyle(p).animationName") == "none"
     assert problems == []
 
 
@@ -260,12 +260,86 @@ def test_copy_puts_the_commands_for_the_chosen_system_on_the_clipboard(visit):
 
 
 @pytest.mark.parametrize("width", [1440, 1024, 390])
-def test_the_wordmark_fits_its_column(visit, width):
+def test_the_logo_plate_holds_the_whole_wordmark_and_the_claim_fits_the_page(visit, width):
     page, _ = visit(viewport={"width": width, "height": 900})
     page.wait_for_load_state("networkidle")
-    mark = page.locator(".wm").bounding_box()
-    column = page.locator(".hero-name").bounding_box()
-    assert mark["x"] + mark["width"] <= column["x"] + column["width"] + 1
+    plate, mark = page.locator(".top .logo").bounding_box(), page.locator(".top .wm").bounding_box()
+    assert plate["x"] <= mark["x"] and mark["x"] + mark["width"] <= plate["x"] + plate["width"]
+    claim = page.locator(".claim").bounding_box()
+    assert claim["x"] >= 0 and claim["x"] + claim["width"] <= width
+    assert page.evaluate("document.scrollingElement.scrollWidth") <= width
+
+
+@pytest.mark.parametrize("width", [1440, 390])
+def test_the_settings_gear_sits_in_the_right_corner_of_the_section_links(visit, width):
+    page, _ = visit(viewport={"width": width, "height": 900})
+    links, gear = page.locator(".top .links").bounding_box(), page.locator(".top .links .gear").bounding_box()
+    assert page.evaluate("document.querySelector('.top .links').lastElementChild.classList.contains('gear')")
+    assert abs(gear["x"] + gear["width"] - (links["x"] + links["width"])) <= 1.5
+    assert links["x"] + links["width"] >= width - 60  # the header's right-hand pane
+    if width == 1440:
+        assert page.locator(".top .links a").all_inner_texts()[:4] == ["How it works", "Results", "Run it", "GitHub"]
+
+
+def answer_height(page, i):
+    return page.evaluate(f"document.querySelectorAll('.ask')[{i}].querySelector('.ask-a').getBoundingClientRect().height")
+
+
+def wait_answer(page, i, opened):
+    test = "> 20" if opened else "< 1"
+    page.wait_for_function(f"document.querySelectorAll('.ask')[{i}].querySelector('.ask-a').getBoundingClientRect().height {test}")
+
+
+def test_an_answer_opens_only_while_its_question_is_hovered_or_has_the_focus(visit):
+    page, problems = visit(viewport={"width": 1440, "height": 900})
+    assert page.locator(".ask").count() == 6
+    question = page.locator(".ask-q").nth(2)
+    question.scroll_into_view_if_needed()
+    page.mouse.move(2, 400)
+    page.wait_for_timeout(450)
+    assert all(answer_height(page, i) < 1 for i in range(6))
+    question.hover()
+    wait_answer(page, 2, True)
+    assert question.get_attribute("aria-expanded") == "true" and answer_height(page, 1) < 1
+    page.mouse.move(2, 400)
+    wait_answer(page, 2, False)
+    assert question.get_attribute("aria-expanded") == "false"
+    question.focus()
+    wait_answer(page, 2, True)
+    assert problems == []
+
+
+def test_on_a_touch_screen_a_tap_opens_one_answer_at_a_time(visit):
+    page, _ = visit(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+    assert page.evaluate("matchMedia('(hover: none)').matches")
+    questions = page.locator(".ask-q")
+    questions.nth(0).scroll_into_view_if_needed()
+    questions.nth(0).tap()
+    wait_answer(page, 0, True)
+    questions.nth(3).tap()
+    wait_answer(page, 3, True)
+    wait_answer(page, 0, False)
+    assert questions.nth(3).get_attribute("aria-expanded") == "true"
+    assert questions.nth(0).get_attribute("aria-expanded") == "false"
+    questions.nth(3).tap()  # a second tap closes it again
+    wait_answer(page, 3, False)
+    assert questions.nth(3).get_attribute("aria-expanded") == "false"
+
+
+def test_served_with_a_hosted_app_the_feature_buttons_open_it(browser, site_url):
+    context = browser.new_context()
+    page = context.new_page()
+
+    def as_hosted(route):
+        response = route.fetch()
+        body = response.text().replace("</head>", '<meta name="loopwright:app" content="/app/">\n</head>')
+        route.fulfill(response=response, body=body)
+    page.route("**/index.html", as_hosted)
+    page.goto(site_url + "index.html")
+    for slug in FEATURES:
+        assert page.locator(f"article#{slug} a.button").get_attribute("href") == f"/app/#{slug}"
+    assert page.locator("[data-local]").first.is_hidden()
+    context.close()
 
 
 @pytest.mark.parametrize("width", [1440, 390])
@@ -313,6 +387,7 @@ def test_without_scripts_every_drawing_and_number_still_shows(visit):
     assert page.locator("[data-num='valid']").inner_text() == whole(DATA["numbers"]["valid"])
     assert not page.locator(".switch").first.is_visible() and not page.locator("[data-cut]").is_visible()
     assert page.locator(".menu-fallback").is_visible() and not page.locator(".menu-button").is_visible()
+    assert all(p.is_visible() for p in page.locator(".ask-a p").all())  # every answer stays open
     assert problems == []
 
 

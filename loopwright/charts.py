@@ -1,7 +1,7 @@
 """Static SVG figures for the slides, docs and product site, computed from batch records.
 
-Two themes: light for slides and docs (series in the zone blue and orange) and dark
-for the site (series in a deep cyan and a periwinkle from the logo's family). Each
+Two themes: light for slides and docs (series in the zone blue and orange) and paper
+for the site (the logo's blue and a burnt orange, on the site's drawing panel). Each
 pair passes the colour-vision checks on its surface; text stays in ink colours,
 every mark carries a tooltip, and two-series charts have a legend.
 """
@@ -11,12 +11,13 @@ from html import escape
 
 from loopwright.batch import p50_p95
 
-Theme = namedtuple("Theme", "surface ink ink2 muted grid a b")
+FONT = "system-ui, 'Segoe UI', sans-serif"
+Theme = namedtuple("Theme", "surface ink ink2 muted grid a b font", defaults=(FONT,))
 THEMES = {
     "light": Theme("#FFFFFF", "#18202B", "#4B5664", "#6B7480", "#E3E7E5", "#2A78D6", "#EB6834"),
-    "dark": Theme("#000000", "#FFFFFF", "#C9D1DA", "#9AA5B1", "#26303C", "#0AA5C8", "#6A7DFF"),
+    "paper": Theme("#F2EDE2", "#23211D", "#4A453D", "#6B665C", "#D9D1C0", "#004AF0", "#C2621F",
+                   "'Instrument Sans', 'Helvetica Neue', Arial, sans-serif"),
 }
-FONT = "system-ui, 'Segoe UI', sans-serif"
 BUCKETS = ("0", "1", "2", "3+")
 SOLVED = ("valid", "invalid")
 
@@ -58,7 +59,7 @@ def _column(x, base, top, w, r=4):
 
 
 def _frame(width, height, title, subtitle, c):
-    return [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" font-family="{FONT}" role="img" '
+    return [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" font-family="{c.font}" role="img" '
             f'aria-label="{escape(title)}">',
             f'<rect width="{width}" height="{height}" fill="{c.surface}"/>',
             f'<text x="24" y="32" font-size="18" font-weight="600" fill="{c.ink}">{escape(title)}</text>',

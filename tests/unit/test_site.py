@@ -91,12 +91,14 @@ def test_the_data_file_carries_the_charts_the_version_and_the_settings(built):
     assert data["settings"] == json.loads(json.dumps(asdict(DEFAULT)))
 
 
-def test_charts_have_a_dark_theme_for_the_site():
+def test_charts_have_a_paper_theme_and_the_site_uses_it(built):
     rows = [row(1), row(2, hubs=3)]
-    dark = extra_hubs_chart(rows, theme="dark")
-    assert 'fill="#000000"' in dark and "#0AA5C8" in dark and "#6A7DFF" in dark
-    assert 'fill="#000000"' in runtime_chart([0.1, 0.2, 0.3], theme="dark")
+    paper = extra_hubs_chart(rows, theme="paper")
+    assert 'fill="#F2EDE2"' in paper and "#004AF0" in paper and "#C2621F" in paper
+    assert 'fill="#F2EDE2"' in runtime_chart([0.1, 0.2, 0.3], theme="paper")
     assert 'fill="#FFFFFF"' in extra_hubs_chart(rows)  # light stays the default
+    _, data = built
+    assert all('fill="#F2EDE2"' in svg for svg in data["charts"].values())
 
 
 @pytest.mark.dataset

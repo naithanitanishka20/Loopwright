@@ -1,23 +1,37 @@
 /* The scale-model figures. The page links this file, and `loopwright site` embeds it in each
-   drawing under assets/, so a drawing also opens on its own. Monochrome tones by facing; colour
-   only where it means something: a ring's zone, its sockets and hubs, and the signal. */
+   drawing under assets/, so a drawing also opens on its own. An architect's model on paper:
+   foam-board walls and plinth shaded by facing, floors tinted by room type, one sun's shadows,
+   cables in their zone's colour and the logo's cyan for the signal only. */
 
 .iso-svg {
-  --paper: #0a0b0d;
-  --s0: #0f1013;
-  --s1: #131519;
-  --s2: #181a1f;
-  --s3: #1d2026;
-  --top: #262a31;
-  --hi: #dfe4ea;
-  --mid: #7d8590;
-  --lo: #4a5059;
-  --faint: #2d3238;
+  --paper: #ece6d8;
+  --ink: #23211d;
+  --hi: #23211d;
+  --mid: #4a453d;
+  --lo: #7c7568;
+  --faint: #ada595;
   --lit: #05f7ff;
-  --base-top: #121418;
-  --floor: #0d0e11;
-  --glass: #1b2a33;
-  --glass-top: #2a4552;
+  --cut: #d23b2a;
+  --w0: #d6cfbf;
+  --w1: #e0d9cb;
+  --w2: #e9e3d7;
+  --w3: #f1ece2;
+  --w-top: #fbf9f3;
+  --p0: #cfc7b5;
+  --p1: #d9d2c3;
+  --p2: #e2dccf;
+  --p3: #eae5da;
+  --p-top: #f4f0e6;
+  --hall: #e3dccd;
+  --living: #f29e57;
+  --bedroom: #97ddff;
+  --kitchen: #bbed7e;
+  --storage: #d79bd6;
+  --bathroom: #84888c;
+  --stair: #cfc8b9;
+  --glass: #bcd6e5;
+  --glass-top: #d5e7f0;
+  --shade: #26324f;
   display: block;
   width: 100%;
   height: auto;
@@ -29,53 +43,85 @@
   vector-effect: non-scaling-stroke;
 }
 
-.iso-fill { fill: var(--paper); stroke: none; }
+.iso-fill { fill: var(--w1); stroke: none; }
 .iso-shade, .iso-top { stroke: none; }
-.iso-shade[data-shade="0"] { fill: var(--s0); }
-.iso-shade[data-shade="1"] { fill: var(--s1); }
-.iso-shade[data-shade="2"] { fill: var(--s2); }
-.iso-shade[data-shade="3"] { fill: var(--s3); }
-.iso-top { fill: var(--top); }
-.base .iso-top { fill: var(--base-top); }
+.iso-shade[data-shade="0"] { fill: var(--w0); }
+.iso-shade[data-shade="1"] { fill: var(--w1); }
+.iso-shade[data-shade="2"] { fill: var(--w2); }
+.iso-shade[data-shade="3"] { fill: var(--w3); }
+.iso-top { fill: var(--w-top); }
 
 /* Faces split for sorting are stroked in their own tone, so no seam shows between them */
 .wall-face .iso-shade { stroke-width: 0.8px; stroke-linejoin: round; }
-.wall-face .iso-shade[data-shade="0"] { stroke: var(--s0); }
-.wall-face .iso-shade[data-shade="1"] { stroke: var(--s1); }
-.wall-face .iso-shade[data-shade="2"] { stroke: var(--s2); }
-.wall-face .iso-shade[data-shade="3"] { stroke: var(--s3); }
-.wall-face.glass .iso-shade { fill: var(--glass); stroke: var(--glass); }
+.wall-face .iso-shade[data-shade="0"] { stroke: var(--w0); }
+.wall-face .iso-shade[data-shade="1"] { stroke: var(--w1); }
+.wall-face .iso-shade[data-shade="2"] { stroke: var(--w2); }
+.wall-face .iso-shade[data-shade="3"] { stroke: var(--w3); }
+.wall-face .pane { fill: var(--glass); stroke: var(--glass); stroke-width: 0.8px; stroke-linejoin: round; }
 .glass-top { fill: var(--glass-top); }
+
+.plinth .iso-fill { fill: var(--p1); }
+.plinth .iso-shade[data-shade="0"] { fill: var(--p0); }
+.plinth .iso-shade[data-shade="1"] { fill: var(--p1); }
+.plinth .iso-shade[data-shade="2"] { fill: var(--p2); }
+.plinth .iso-shade[data-shade="3"] { fill: var(--p3); }
+.plinth .iso-top { fill: var(--p-top); }
+.slab .iso-fill, .slab .iso-shade { fill: var(--p0); }
+.slab .iso-top { fill: var(--hall); }
 
 .iso-line { fill: none; stroke: var(--lo); stroke-width: 0.6px; stroke-linecap: round; stroke-linejoin: round; }
 .iso-line[data-tone="hi"] { stroke: var(--hi); }
 .iso-line[data-tone="mid"] { stroke: var(--mid); }
 .iso-line[data-tone="lo"] { stroke: var(--lo); }
 .iso-line[data-tone="faint"] { stroke: var(--faint); }
-.iso-dots circle { fill: #e6e6e6; opacity: 0.32; }
-.iso-dots[data-tone="mid"] circle { opacity: 0.45; }
-.iso-halo { fill: #000; opacity: 0.9; filter: blur(9px); transform: translateY(3px); }
-.iso-face-text { fill: var(--mid); font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; letter-spacing: 0.02em; }
+.iso-dots circle { fill: var(--ink); opacity: 0.5; }
+.iso-halo { fill: #3a3228; opacity: 0.2; filter: blur(12px); transform: translateY(10px); }
+.iso-face-text { fill: var(--mid); font-family: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.scale-block { fill: var(--p-top); stroke: none; }
+.scale-block.ink { fill: var(--ink); }
 
-.room { fill: var(--floor); stroke: var(--faint); stroke-width: 0.6px; }
-.room[data-zone] { fill: color-mix(in srgb, var(--ring) 8%, var(--floor)); }
-.threshold { fill: var(--paper); stroke: var(--lo); stroke-width: 0.6px; }
+.room { fill: var(--hall); stroke: var(--lo); stroke-width: 0.6px; }
+.room[data-type="living"] { fill: var(--living); }
+.room[data-type="bedroom"] { fill: var(--bedroom); }
+.room[data-type="kitchen"] { fill: var(--kitchen); }
+.room[data-type="storage"] { fill: var(--storage); }
+.room[data-type="bathroom"] { fill: var(--bathroom); }
+.room[data-type="stair"] { fill: var(--stair); }
+.pattern { fill: none; stroke: var(--ink); stroke-opacity: 0.1; stroke-width: 0.6px; }
+.threshold { fill: #e8dcc6; stroke: var(--lo); stroke-width: 0.6px; }
+.shadow { fill: var(--shade); fill-opacity: 0.15; stroke: none; }
 
-.tb-body { fill: var(--s2); }
-.tb-shine { fill: var(--top); }
-.tb-shade { fill: var(--s0); }
-.tb > .iso-edge { stroke: var(--hi); }
-.coloured .tb > .iso-edge { stroke: var(--ring); }
-.iso-wire-end { fill: var(--paper); stroke: var(--hi); stroke-width: 0.6px; }
-.coloured .iso-wire-end { stroke: var(--ring); }
+.room-label text { text-anchor: middle; fill: var(--ink); }
+.room-label .name { font-family: "Instrument Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+.room-label .area { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; fill: var(--mid); }
+.room-label[data-type="bathroom"] .area { fill: var(--ink); }
 
-.socket .led { fill: var(--lo); transition: fill 0.35s ease; }
-.coloured .socket .led,
-.socket.fed .led { fill: var(--ring); }
-.hub .port { fill: var(--ring); }
+.socket-plate .iso-fill, .socket-plate .iso-shade { fill: #e9e4d8; }
+.socket-plate .iso-top { fill: #fbf9f4; }
+.socket-puck .iso-fill, .socket-puck .iso-shade { fill: #dcd5c7; }
+.socket-puck .iso-top { fill: #ffffff; }
+.socket .led { fill: var(--faint); transition: fill 0.35s ease; }
+.model:not(.live) .socket .led { fill: var(--ring); }
+.socket.fed .led { fill: var(--lit); stroke: var(--ink); stroke-width: 0.6px; }
 
-/* A cut leg: its joint piece parts, and the two cut ends show */
-.cut-end { display: none; fill: var(--s2); stroke: var(--hi); stroke-width: 0.6px; }
+.hub-body .iso-fill { fill: #2b2925; }
+.hub-body .iso-shade[data-shade="0"] { fill: #1d1b18; }
+.hub-body .iso-shade[data-shade="1"] { fill: #24221e; }
+.hub-body .iso-shade[data-shade="2"] { fill: #2c2a25; }
+.hub-body .iso-shade[data-shade="3"] { fill: #34312c; }
+.hub-body .iso-top { fill: #3d3a34; }
+.hub .iso-dots circle { fill: #f4f0e6; opacity: 0.6; }
+.hub .port { fill: var(--ring); stroke: #f4f0e6; stroke-width: 0.6px; }
+.hub-label { fill: #f4f0e6; }
+
+.tb-body { fill: var(--ring); }
+.tb-shine { fill: color-mix(in srgb, var(--ring) 55%, #ffffff); }
+.tb-shade { fill: color-mix(in srgb, var(--ring) 65%, #000000); }
+.tb > .iso-edge { stroke: color-mix(in srgb, var(--ring) 55%, #000000); }
+.iso-wire-end { fill: var(--paper); stroke: var(--ink); stroke-width: 0.6px; }
+
+/* A cut leg: its joint piece parts, and the two cut ends show in red */
+.cut-end { display: none; fill: color-mix(in srgb, var(--ring) 65%, #000000); stroke: var(--cut); stroke-width: 1px; }
 .tb.cut > .tb-body,
 .tb.cut > .tb-shine,
 .tb.cut > .tb-shade,
@@ -86,6 +132,6 @@
 .tb.on > .iso-edge { stroke: var(--lit); }
 
 /* The signal: each cable piece shows the part of the pulse that lies on it */
-.core { fill: none; stroke: var(--ring); stroke-width: 1.8px; stroke-linecap: round; visibility: hidden; }
-.glow { fill: none; stroke: var(--ring); stroke-width: 6px; stroke-linecap: round; opacity: 0.3; visibility: hidden; }
+.core { fill: none; stroke: var(--lit); stroke-width: 2px; stroke-linecap: round; visibility: hidden; }
+.glow { fill: none; stroke: var(--lit); stroke-width: 6px; stroke-linecap: round; opacity: 0.35; visibility: hidden; }
 .hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }

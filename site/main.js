@@ -1,5 +1,6 @@
 /* Loopwright product site: drawings and numbers from data.js, the live scale model in figure 1,
-   the features menu, the two comparisons and the copy buttons. data.js is written by `loopwright site`. */
+   the features menu, the How it works answers, the two comparisons and the copy buttons. data.js is
+   written by `loopwright site`. */
 (function () {
   "use strict";
 
@@ -43,6 +44,40 @@
       if (!menu.contains(e.target)) set(false);
     });
   });
+
+  /* How it works: an answer opens while the pointer is over its question or the question has the
+     focus; where there is no pointer, a tap opens it and closes the others */
+
+  var noHover = window.matchMedia("(hover: none)");
+  var asks = Array.prototype.slice.call(document.querySelectorAll(".ask"));
+  asks.forEach(function (ask) {
+    var question = ask.querySelector(".ask-q");
+    function sync() {
+      var open = noHover.matches ? ask.classList.contains("open") : ask.matches(":hover, :focus-within");
+      question.setAttribute("aria-expanded", String(open));
+    }
+    ["mouseenter", "mouseleave", "focusin", "focusout"].forEach(function (type) {
+      ask.addEventListener(type, function () { setTimeout(sync); });
+    });
+    question.addEventListener("click", function () {
+      if (!noHover.matches) return;
+      var open = !ask.classList.contains("open");
+      asks.forEach(function (other) {
+        other.classList.toggle("open", other === ask && open);
+        other.querySelector(".ask-q").setAttribute("aria-expanded", String(other === ask && open));
+      });
+    });
+  });
+
+  /* Served with a hosted app, the feature buttons open that app instead of one on this machine */
+
+  var hosted = document.querySelector('meta[name="loopwright:app"]');
+  if (hosted) {
+    each('.feature a[href^="http://127.0.0.1:8000/"]', function (a) {
+      a.href = hosted.content + a.hash;
+    });
+    each("[data-local]", function (el) { el.hidden = true; });
+  }
 
   if (!data) {
     root.classList.remove("js");

@@ -69,6 +69,8 @@ def test_the_pages_load_nothing_from_another_site(name):
     css = (SITE / "styles.css").read_text(encoding="utf-8")
     assert "@import" not in css
     for url in re.findall(r"url\(\"?([^\")]+)\"?\)", css):
+        if url.startswith("data:"):  # drawn inline, nothing to fetch
+            continue
         assert not re.match(r"(https?:)?//", url) and (SITE / url).exists(), url
     assert "@import" not in (SITE / "figure.css").read_text(encoding="utf-8")
 

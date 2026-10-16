@@ -1,7 +1,7 @@
 """The product site's generated parts.
 
 `build_site` solves the site's plans and draws each as an isometric scale model
-(`loopwright.figure`), then writes them, the dark charts, the solver's settings and the
+(`loopwright.figure`), then writes them, the charts, the solver's settings and the
 headline figures from the batch records into the site folder: `data.js` for the page's
 scripts, and `assets/` for drawings that also open on their own. The page is hand-written.
 """
@@ -65,7 +65,7 @@ def build_site(site_dir, drawings, bench_dir):
     rows = _rows(bench_dir)
     latency = pathlib.Path(bench_dir) / "latency-test.jsonl"
     times = [r["runtime_s"] for r in (load_rows(latency) if latency.exists() else rows)]
-    charts = {"extra_hubs": extra_hubs_chart(rows, theme="dark"), "runtime": runtime_chart(times, theme="dark")}
+    charts = {"extra_hubs": extra_hubs_chart(rows, theme="paper"), "runtime": runtime_chart(times, theme="paper")}
     (assets / "extra-hubs.svg").write_text(charts["extra_hubs"], encoding="utf-8")
     (assets / "runtime.svg").write_text(charts["runtime"], encoding="utf-8")
     data = {"version": __version__, "numbers": site_numbers(bench_dir), "drawings": drawn, "charts": charts,
