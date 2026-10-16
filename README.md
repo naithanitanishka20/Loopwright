@@ -44,6 +44,8 @@ loopwright serve                                     # http://127.0.0.1:8000/
 - **Why this many hubs?** names the binding constraint and outlines the rooms that force extra hubs.
 - **Installer pack**: cable schedule, bill of materials, loop resistance, cost estimate and commissioning sheet.
 
+A link can open the app in one mode: `http://127.0.0.1:8000/#edit`, `#cut`, `#installer`, `#draw`, `#upload` or `#dxf`.
+
 The server listens on 127.0.0.1 only and refuses requests addressed to any other host.
 
 ### DXF layer convention
@@ -54,7 +56,7 @@ The server listens on 127.0.0.1 only and refuses requests addressed to any other
 
 ## Product site
 
-`site/` is a static page about Loopwright: open `site/index.html` straight from disk, or publish the folder with GitHub Pages. Every drawing on it is solver output and every figure comes from the batch records in `bench/`; `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. `index.html`, `styles.css` and `main.js` are written by hand, and `tests/unit/test_site_page.py` fails if the page's figures drift from `site/data.js`.
+`site/` is a static site about Loopwright: open `site/index.html` straight from disk, or publish the folder with GitHub Pages. Its figures are isometric scale models of solved ResPlan plans, built from the solver's own output by `loopwright/figure.py`: in the first, a signal runs round each ring and any leg can be cut. Every number comes from the batch records in `bench/`, and `settings.html` lists every setting with its default. `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. The pages, `styles.css`, `figure.css` and `main.js` are written by hand; `tests/unit/test_site_page.py` fails if a page's figures or settings drift from `site/data.js`.
 
 ## Command line
 
@@ -71,7 +73,7 @@ loopwright site                                      # the product site's drawin
 loopwright config                                    # the default settings as JSON
 ```
 
-Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`.
+Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`. A plan with more than 14 eligible rooms is refused, since the exact search walks every grouping of them (ResPlan has at most 10).
 
 ## Layout
 
@@ -87,7 +89,7 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/output/` | JSON (schema `loopwright/2`), SVG overlay, viewer, installer pack, cut analysis, explanations, app page |
 | `loopwright/api/` | The local server behind the app |
 | `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |
-| `loopwright/site.py`, `site/` | The product site: generated drawings, charts and figures, and the hand-written page |
+| `loopwright/site.py`, `figure.py`, `iso.py`, `site/` | The product site: scale-model figures (an isometric camera and measured painter's order in `iso.py`), charts, figures and settings, and the hand-written pages |
 | `bench/` | Batch records (`.jsonl`) and reports for every ResPlan split, and `results.md` |
 | `docs/` | Assumptions, schema, testing playbook, demo script, phase notes, figures |
 
