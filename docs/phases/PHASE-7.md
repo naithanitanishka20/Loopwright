@@ -55,7 +55,7 @@ loopwright batch --split test --workers 1 --report bench/latency-test.md
 loopwright batch --split test --workers 4 --report bench/test-split.md     # and val, augmented, train
 loopwright results bench/test-split.jsonl bench/val-split.jsonl bench/augmented-split.jsonl bench/train-split.jsonl
 loopwright charts bench/test-split.jsonl bench/val-split.jsonl bench/augmented-split.jsonl bench/train-split.jsonl --runtime bench/latency-test.jsonl
-python -m pytest -q                                                      # 259 tests
+python -m pytest -q                                                      # full suite; dataset split checks need data/split.json
 ```
 
 To compare with the earlier placement and routing in code: `Settings(node_rule="pole", separate_lanes=False)`.
