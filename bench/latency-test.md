@@ -8,8 +8,8 @@ Plans: 1632 · zone rule: strict · caps: 100 m², 5 nodes
 | infeasible | 44 |
 
 Valid on feasible plans: 1588 of 1588 (100.0%)
-Hubs: 3038 against a lower bound of 2438 and greedy's 3187
-Runtime per plan: p50 0.13 s, p95 0.54 s
+Hubs: 3037 against a lower bound of 2438 and greedy's 3185
+Runtime per plan: p50 0.38 s, p95 1.26 s
 
 | Cause | Plans | Examples |
 |---|---|---|
