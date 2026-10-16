@@ -130,10 +130,12 @@ def test_a_plan_too_big_for_the_exact_search_is_refused_quickly_with_a_reason():
     import time
 
     from loopwright.io.sketch import build_plan
+    from loopwright.optimize.zones import MAX_EXACT_ROOMS
 
-    rooms = [{"type": "bedroom", "polygon": [[4 * i, 0], [4 * i + 4, 0], [4 * i + 4, 4], [4 * i, 4]]} for i in range(15)]
-    plan = build_plan(rooms, [(i, i + 1) for i in range(14)])
+    n = MAX_EXACT_ROOMS + 1  # one limit, owned by the zone search
+    rooms = [{"type": "bedroom", "polygon": [[4 * i, 0], [4 * i + 4, 0], [4 * i + 4, 4], [4 * i, 4]]} for i in range(n)]
+    plan = build_plan(rooms, [(i, i + 1) for i in range(n - 1)])
     started = time.perf_counter()
-    with pytest.raises(ValueError, match="15 eligible rooms"):
+    with pytest.raises(ValueError, match=f"{n} eligible rooms"):
         solve(plan)
     assert time.perf_counter() - started < 5

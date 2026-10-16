@@ -15,7 +15,8 @@ def _check_room_count(n):
     if type(n) is not int or n < 0:
         raise ValueError("n must be a non-negative integer")
     if n > MAX_EXACT_ROOMS:
-        raise ValueError(f"exact zone search supports at most {MAX_EXACT_ROOMS} rooms")
+        raise ValueError(f"this plan has {n} eligible rooms; the exact zone search supports at most {MAX_EXACT_ROOMS} "
+                         "rooms, so split the plan or merge small rooms")
 
 
 def ceil_div(x, d):

@@ -73,7 +73,7 @@ loopwright site                                      # the product site's drawin
 loopwright config                                    # the default settings as JSON
 ```
 
-Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`. A plan with more than 14 eligible rooms is refused, since the exact search walks every grouping of them (ResPlan has at most 10).
+Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`. A plan with more than 12 eligible rooms is refused, since the exact search walks every grouping of them (ResPlan has at most 10).
 
 ## Layout
 
