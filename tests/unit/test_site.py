@@ -41,7 +41,7 @@ def built(tmp_path):
     site = tmp_path / "site"
     site.mkdir()
     (site / "figure.css").write_text(".iso-svg{--paper:#000}", encoding="utf-8")
-    data = build_site(site, {"hero": (FLAT, DEFAULT, {"live": True}), "still": (FLAT, DEFAULT, {"coloured": True})}, bench)
+    data = build_site(site, {"hero": (FLAT, DEFAULT, {"live": True}), "still": (FLAT, DEFAULT, {})}, bench)
     return site, data
 
 
@@ -81,7 +81,7 @@ def test_only_the_live_drawing_carries_its_rings_for_the_signal(built):
     rings = data["drawings"]["hero"]["rings"]
     assert rings and all(r["length"] > 0 and r["stops"] for r in rings)
     assert "rings" not in data["drawings"]["still"]
-    assert 'class="iso-svg model coloured"' in data["drawings"]["still"]["svg"]
+    assert 'class="iso-svg model"' in data["drawings"]["still"]["svg"]
 
 
 def test_the_data_file_carries_the_charts_the_version_and_the_settings(built):

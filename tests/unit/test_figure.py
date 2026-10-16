@@ -2,9 +2,9 @@
 import re
 
 import pytest
-from shapely.geometry import Polygon, box
+from shapely.geometry import Point, Polygon, box
 
-from loopwright.figure import hub_size, model_svg, room_name
+from loopwright.figure import cast_shadow, floor_pattern, hub_size, model_svg, place_label, room_name
 from loopwright.io.sketch import build_plan
 from loopwright.iso import rect_ring
 from loopwright.solve import solve
@@ -86,7 +86,7 @@ def test_past_three_hubs_zones_are_coloured_by_role_so_no_two_unrelated_zones_ma
     from loopwright.io.resplan import get_plan
 
     out, model = solve(get_plan(resplan_plans, 16448))
-    svg, _ = model_svg(model, out, coloured=True)
+    svg, _ = model_svg(model, out)
     colour = dict(re.findall(r'<g class="hub" data-hub="(H\d)" style="--ring:([^"]+)"', svg))
     living = next(h["id"] for h in out["hubs"] if any(r.startswith("living") for r in h["zone"]))
     singles = [h["id"] for h in out["hubs"] if len(h["zone"]) == 1]
@@ -118,3 +118,48 @@ def test_a_real_plan_is_built_with_glazed_windows_and_open_doors(resplan_plans):
     assert svg.count('class="threshold"') >= 5
     assert [r["hub"] for r in meta["rings"]] == ["H1", "H2"]
     assert meta["rings"][0]["length"] == pytest.approx(out["rings"][0]["length_m"], abs=0.1)
+
+
+def test_every_room_is_labelled_on_its_floor_with_its_name_and_area(solved):
+    _, svg, _ = solved
+    labels = dict(re.findall(r'<g class="room-label" data-room="([^"]+)"[^>]*><text class="name"[^>]*>([^<]+)</text>', svg))
+    assert labels == {"living_0": "Living room", "bedroom_0": "Bedroom", "kitchen_0": "Kitchen"}
+    assert re.search(r'data-room="living_0"[^>]*><text class="name"[^>]*>Living room</text><text class="area"[^>]*>3\d\.\d m²</text>', svg)
+
+
+def test_each_room_floor_carries_its_type_so_rooms_are_coloured_by_type(solved):
+    _, svg, _ = solved
+    types = dict(re.findall(r'<path class="room" data-room="([^"]+)" data-type="([^"]+)"', svg))
+    assert types == {"living_0": "living", "bedroom_0": "bedroom", "kitchen_0": "kitchen"}
+
+
+def test_a_label_keeps_clear_of_what_stands_on_the_floor_and_runs_along_the_longer_side():
+    room = box(0, 0, 6, 4)
+    socket = Point(3, 2).buffer(0.5)  # in the middle, where the label would otherwise go
+    label = place_label(room, socket, "Bedroom 2", "19.1 m²")
+    assert label.along == "x" and room.contains(label.box) and not label.box.intersects(socket)
+    assert place_label(box(0, 0, 3, 8), Polygon(), "Bedroom 2", "19.1 m²").along == "y"
+
+
+def test_a_narrow_room_keeps_its_name_large_and_drops_the_area():
+    label = place_label(box(0, 0, 2.0, 0.6), Polygon(), "Bathroom 2", "1.2 m²")  # room for one line, not two
+    assert label.size >= 0.26 and not label.with_area
+
+
+def test_a_wall_casts_its_shadow_away_from_the_sun():
+    sun = (1.0, 0.0, 1.0)  # from +x, 45 degrees up: a 1 m wall throws 1 m of shadow towards -x
+    shadow = cast_shadow(box(0, 0, 1, 1), 1.0, sun)
+    assert shadow.bounds == pytest.approx((-1.0, 0.0, 0.0, 1.0))
+    assert shadow.area == pytest.approx(1.0)
+
+
+def test_floor_planks_and_tiles_end_on_the_room_outline():
+    room = Polygon([(0, 0), (4, 0), (4, 3), (2, 3), (2, 5), (0, 5)])  # an L, so lines also stop at the inner corner
+    for kind, both_ways in (("living", False), ("kitchen", True)):
+        lines = list(floor_pattern(room, kind).geoms)
+        assert lines
+        ends = [Point(c) for line in lines for c in (line.coords[0], line.coords[-1])]
+        assert all(room.boundary.distance(e) < 1e-6 for e in ends)
+        directions = {abs(line.coords[-1][0] - line.coords[0][0]) > 1e-9 for line in lines}  # True: runs along x
+        assert len(directions) == (2 if both_ways else 1)
+    assert floor_pattern(room, "storage").is_empty
