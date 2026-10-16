@@ -64,13 +64,13 @@ The server listens on 127.0.0.1 and refuses requests addressed to any other host
 
 The repository carries a `Dockerfile` and `railway.json` for one hosted service, the site in front and the app behind it.
 
-1. In Railway, create a project from this GitHub repository. Railway builds the `Dockerfile`: it installs the package, downloads ResPlan (checked against its pinned SHA-256) and keeps the test split and the three plans the site opens (`scripts/hosted_plans.py`), about 150 MB in memory instead of 1.4 GB for all 17,000.
+1. In Railway, create a project from this GitHub repository. Railway builds the `Dockerfile`: it installs the package, downloads ResPlan (checked against its pinned SHA-256) and writes every plan into one SQLite store (`scripts/plan_store.py`) that the server reads a plan at a time from: all 17,000 plans in about 80 MB of memory, against 1.4 GB to load them all.
 2. Under the service's networking settings, generate a public domain. The service answers to any host name, so the domain works as soon as Railway has made it.
 3. Every push to `main` deploys again.
 
 Railway hears about a push only through its GitHub app. If a push starts no build, install the Railway app on the GitHub account that owns the repository, with access to this repository (GitHub settings, Applications), then deploy the latest commit from Railway. Or deploy straight from a checkout with the Railway CLI: `railway login`, `railway link` to pick the project and service, then `railway up`; it uploads the checkout, leaving out what `.gitignore` names, and builds the same `Dockerfile`.
 
-Hosted, the app solves any plan of the test split; uploads stay limited to 20 MB and plans to 12 eligible rooms, and nothing a visitor sends is stored.
+Hosted, the app solves any of the 17,000 plans; uploads stay limited to 20 MB and plans to 12 eligible rooms, and nothing a visitor sends is stored.
 
 ## Command line
 
@@ -104,7 +104,7 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/api/` | The local server behind the app |
 | `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |
 | `loopwright/site.py`, `figure.py`, `iso.py`, `site/` | The product site: scale-model figures (an isometric camera and measured painter's order in `iso.py`), charts, figures and settings, and the hand-written pages |
-| `Dockerfile`, `railway.json`, `scripts/hosted_plans.py` | The hosted service: the site at `/`, the app at `/app/`, and the plans it serves |
+| `Dockerfile`, `railway.json`, `scripts/plan_store.py` | The hosted service: the site at `/`, the app at `/app/`, and the store of every plan it serves |
 | `bench/` | Batch records (`.jsonl`) and reports for every ResPlan split, and `results.md` |
 | `docs/` | Assumptions, schema, testing playbook, demo script, phase notes, figures |
 
