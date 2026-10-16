@@ -8,7 +8,7 @@ version = "0.7.0"
 description = "Hub placement and closed-ring cable routing on residential floor plans (Problem IA)"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["shapely>=2.0", "numpy>=1.26"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "hypothesis>=6.100", "httpx2>=2.13"]
@@ -25,11 +25,6 @@ include = ["loopwright*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-<<<<<<< HEAD
-  "dataset: needs data/ResPlan.zip (skipped when missing)",
-  "e2e: browser-level smoke tests",
-=======
     "dataset: needs data/ResPlan.zip (skipped when missing)",
     "e2e: browser tests with Playwright (skipped when Playwright is missing)",
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4
 ]

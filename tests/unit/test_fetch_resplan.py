@@ -1,10 +1,7 @@
 import hashlib
 import importlib
-<<<<<<< HEAD
-=======
 import math
 import pathlib
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4
 
 import pytest
 
@@ -86,8 +83,6 @@ def test_download_rejects_unpinned_host(tmp_path):
 
     with pytest.raises(ValueError, match="host"):
         fetcher.download(tmp_path / "ResPlan.zip", "0" * 64, opener=opener)
-<<<<<<< HEAD
-=======
 
 
 def test_download_fetches_the_url_it_is_given(tmp_path):
@@ -178,4 +173,3 @@ def test_download_removes_a_partial_file_when_size_limit_is_exceeded(tmp_path, m
 
     assert not target.exists()
     assert not list(tmp_path.glob("*.part"))
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4

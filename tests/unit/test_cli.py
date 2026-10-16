@@ -14,10 +14,6 @@ def test_validate_command_reports_bad_json(tmp_path, capsys):
     path.write_text("[]", encoding="utf-8")
 
     assert main(["validate", str(path)]) == 1
-<<<<<<< HEAD
-    output = json.loads(capsys.readouterr().out)
-    assert output["valid"] is False
-=======
     output = capsys.readouterr().out
     assert "structure  FAIL  document must be an object" in output
     assert output.rstrip().endswith("INVALID")
@@ -109,4 +105,3 @@ def test_solve_and_validate_commands_use_organiser_json(tmp_path, capsys):
 
     assert main(["validate", str(design_path), "--json", str(plan_path)]) == 0
     assert capsys.readouterr().out.rstrip().endswith("valid")
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4

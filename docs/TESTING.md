@@ -1,30 +1,24 @@
-# Testing
+# Testing playbook (for the testers)
 
-Run the fast suite from the repository root:
+After each phase the builder pushes a tag (`phase-1`, `phase-2`, ...). Testers test that tag, fix what they find, and push the fixes on their own branch. The builder merges them into `main` while working on the next phase.
+
+## Flow
 
 ```bash
-<<<<<<< HEAD
-=======
 git clone <repo-url> && cd loopwright
 git checkout -b test/phase-N phase-N      # start from the phase tag, not from main
 python -m venv .venv && .venv/Scripts/activate
 python -m pip install -e ".[dev,import,serve,e2e]"
 python scripts/fetch_resplan.py
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4
 python -m pytest -q
+# ...test, fix, commit with a clear message...
+git push -u origin test/phase-N           # never push to main; open a PR into main
 ```
 
-Run browser smoke coverage when the e2e extra and Chromium are installed:
+Each fix commit names the problem it fixes and, where possible, adds a test that failed before the fix.
 
-```bash
-python -m pytest -m e2e -q
-```
+## What to run after every phase
 
-<<<<<<< HEAD
-Tests cover settings validation, schema boundaries, the CLI, and the dataset downloader. Dataset-specific tests should use the `dataset` marker and skip when `data/ResPlan.zip` is absent.
-
-Every new bug should get a failing regression test at the public interface that exposed it. Keep network tests deterministic by injecting the opener and using a fixed payload.
-=======
 | Area | How | What to look for |
 |------|-----|------------------|
 | Unit and property tests | `python -m pytest -q` | Red tests; new invariants worth a property test |
@@ -53,4 +47,3 @@ See `docs/phases/PHASE-N.md` for what each phase delivered, how to run it, and w
 ## Reporting
 
 Open an issue or PR titled `[phase-N] <what broke>`, with the plan ID, the command, what happened and what you expected.
->>>>>>> e93d1bc4ec002a5c7592ba84d9672f2712ba5fd4

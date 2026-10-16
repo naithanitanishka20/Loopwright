@@ -18,11 +18,5 @@ bench/runs/
 # Editors and OS
 .vscode/
 .idea/
-.codex/
-.agents/
-.cursor/
-.claude/
-.aider*
-.github/copilot/
 .DS_Store
 Thumbs.db
