@@ -58,7 +58,7 @@ The server listens on 127.0.0.1 and refuses requests addressed to any other host
 
 `site/` is a static site about Loopwright, drawn like an installer's working drawing: open `site/index.html` straight from disk, publish the folder on any static host, or serve it with the app (below). Its figures are isometric architectural models of solved ResPlan plans, built from the solver's own output by `loopwright/figure.py`: raised walls with the doors open and the windows glazed, rooms coloured by type and labelled with their name and area, one sun's shadows, and each ring's cable in its hub's colour. In the first, a signal runs round each ring and any leg can be cut. Every number comes from the batch records in `bench/`, and `settings.html` lists every setting with its default. `loopwright site` regenerates `site/data.js` and `site/assets/` after a new batch run. The pages, `styles.css`, `figure.css` and `main.js` are written by hand; `tests/unit/test_site_page.py` fails if a page's figures or settings drift from `site/data.js`.
 
-`loopwright serve --site site` puts the site at `/` and the app at `/app/` as the site's playground: the app in the site's look, with links back to it, and a model view that shows the current design as the site's scale model, with its signal and its cuts. The site then leads with "Open the playground", and its "Open in the app" buttons open that app instead of one on the visitor's machine.
+`loopwright serve --site site` puts the site at `/` and the app at `/app/` as the site's playground: inside the site's own header and footer and dressed by its stylesheet, opening on a solved plan, with a model view that shows the current design as the site's scale model, with its signal and its cuts. The site then leads with "Open the playground", and its "Open in the app" buttons open that app instead of one on the visitor's machine.
 
 ## Hosting on Railway
 
@@ -67,6 +67,8 @@ The repository carries a `Dockerfile` and `railway.json` for one hosted service,
 1. In Railway, create a project from this GitHub repository. Railway builds the `Dockerfile`: it installs the package, downloads ResPlan (checked against its pinned SHA-256) and keeps the test split and the three plans the site opens (`scripts/hosted_plans.py`), about 150 MB in memory instead of 1.4 GB for all 17,000.
 2. Under the service's networking settings, generate a public domain. The service answers to any host name, so the domain works as soon as Railway has made it.
 3. Every push to `main` deploys again.
+
+Railway hears about a push only through its GitHub app. If a push starts no build, install the Railway app on the GitHub account that owns the repository, with access to this repository (GitHub settings, Applications), then deploy the latest commit from Railway. Or deploy straight from a checkout with the Railway CLI: `railway login`, `railway link` to pick the project and service, then `railway up`; it uploads the checkout, leaving out what `.gitignore` names, and builds the same `Dockerfile`.
 
 Hosted, the app solves any plan of the test split; uploads stay limited to 20 MB and plans to 12 eligible rooms, and nothing a visitor sends is stored.
 
