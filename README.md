@@ -2,7 +2,20 @@
 
 Hub placement and closed-ring cable routing on residential floor plans.
 
-Given a floor plan, Loopwright decides how many hubs, where each goes, which rooms and nodes each serves, the visiting order, and an axis-aligned cable route for every closed ring. Designs are ranked the organisers' way: fewest hubs first, then lowest cost J. Every output is re-checked by an independent validator (rules V00-V14) that shares no code with the solver.
+Given a floor plan, Loopwright decides how many hubs, where each goes, which rooms and nodes each serves, the visiting order, and an axis-aligned cable route for every closed ring. Designs are ranked the organisers' way: fewest hubs first, then lowest cost J. Every output is re-checked by an independent validator (rules V00-V14) that rebuilds rooms, walls and doors from the raw plan and imports nothing from the solver.
+
+## Results
+
+Every ResPlan plan, all 17,000 (`bench/results.md`, written by `loopwright results` from the batch records in `bench/`):
+
+- **Valid**: 16,556 of 16,556 feasible plans. The other 444 each have a room over 100 m², which no design can satisfy; they are flagged infeasible.
+- **Hubs**: 29,421 against a lower bound of 23,920; the greedy baseline needs 31,111. 12,893 plans meet the bound exactly. The rest are held above it by the door rule or by rooms that don't pack into zones of at most 100 m² and 5 nodes; "Why this many hubs?" names the reason on any plan.
+- **Cable**: J = 645,322 over the valid plans, 39.0 per plan. Rings cross on 7 plans and share 2.9 m of route on 5.
+- **Time**: one process on a laptop, test split: p50 0.13 s, p95 0.54 s per plan.
+
+![Hubs above the lower bound per plan, exact against greedy](docs/figures/extra-hubs.svg)
+
+![Share of plans solved within each time](docs/figures/runtime.svg)
 
 ## Setup
 
@@ -47,8 +60,9 @@ loopwright solve --json plan.json --out out/         # an organisers' plan file 
 loopwright validate out/14433.json --id 14433        # structure, then the independent checks V00-V14
 loopwright validate out/14433.json                   # structure only: types, finite numbers, schema keys
 loopwright index out/                                # out/index.html listing every solved plan
-loopwright batch --split test --workers 6            # a ResPlan split, failures grouped by cause
+loopwright batch --split test --workers 4            # a ResPlan split, failures grouped by cause
 loopwright results bench/test-split.jsonl bench/val-split.jsonl   # bench/results.md
+loopwright charts bench/test-split.jsonl --runtime bench/latency-test.jsonl   # docs/figures/*.svg
 loopwright config                                    # the default settings as JSON
 ```
 
@@ -67,8 +81,9 @@ Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or
 | `loopwright/validate/` | Independent validator: structure checks, rules V00-V14, scorer |
 | `loopwright/output/` | JSON (schema `loopwright/2`), SVG overlay, viewer, installer pack, cut analysis, explanations, app page |
 | `loopwright/api/` | The local server behind the app |
-| `loopwright/batch.py`, `results.py` | Batch runs and the results table |
-| `docs/` | Assumptions, schema, testing playbook, phase notes |
+| `loopwright/batch.py`, `results.py`, `charts.py` | Batch runs, the results table and the slide figures |
+| `bench/` | Batch records (`.jsonl`) and reports for every ResPlan split, and `results.md` |
+| `docs/` | Assumptions, schema, testing playbook, demo script, phase notes, figures |
 
 ## Status
 
