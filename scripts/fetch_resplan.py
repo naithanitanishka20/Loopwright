@@ -1,4 +1,4 @@
-"""Download ResPlan.zip (about 100 MB, CC BY 4.0) into data/ and verify its SHA-256.
+"""Download ResPlan.zip (about 100 MB, CC BY 4.0) and split.json into data/, verifying each SHA-256.
 
 Usage: python scripts/fetch_resplan.py [--sha256 DIGEST] [--timeout SECONDS]
 """
@@ -20,6 +20,10 @@ URL = "https://raw.githubusercontent.com/m-agour/ResPlan/main/ResPlan.zip"
 # SHA-256 of ResPlan.zip as served at URL on 15 Oct 2026 (100,106,537 bytes).
 PINNED_SHA256 = "f718de8865e51bbe93b49b584798e3c536ed6b4b8a5d32f01b56812f389aeb46"
 DEST = pathlib.Path(__file__).resolve().parent.parent / "data" / "ResPlan.zip"
+SPLIT_URL = "https://raw.githubusercontent.com/m-agour/ResPlan/main/split.json"
+# SHA-256 of split.json as served at SPLIT_URL on 16 Oct 2026 (177,059 bytes).
+SPLIT_PINNED_SHA256 = "7761df4ad4c860d7e89d1ef9c7004737cd407615b66ed9cde676d7087108c9a7"
+SPLIT_DEST = DEST.with_name("split.json")
 DEFAULT_TIMEOUT_S = 30
 MAX_BYTES = 200 * 1024 * 1024
 CHUNK_SIZE = 1024 * 1024
@@ -47,12 +51,12 @@ def _file_digest(path):
     return digest.hexdigest()
 
 
-def download(destination, sha256, *, opener=urllib.request.urlopen, timeout=DEFAULT_TIMEOUT_S):
+def download(destination, sha256, *, url=URL, opener=urllib.request.urlopen, timeout=DEFAULT_TIMEOUT_S):
     destination = pathlib.Path(destination)
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("timeout must be a finite number greater than zero")
     expected = _check_digest(sha256)
-    _check_url(URL)
+    _check_url(url)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     if destination.is_symlink():
@@ -64,7 +68,7 @@ def download(destination, sha256, *, opener=urllib.request.urlopen, timeout=DEFA
 
     temporary = None
     try:
-        request = urllib.request.Request(URL, headers={"User-Agent": "loopwright-fetch/1"})
+        request = urllib.request.Request(url, headers={"User-Agent": "loopwright-fetch/1"})
         with opener(request, timeout=timeout) as response:
             final_url = response.geturl()
             _check_url(final_url)
@@ -100,11 +104,12 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.timeout <= 0:
         parser.error("--timeout must be greater than zero")
-    try:
-        path = download(DEST, args.sha256, timeout=args.timeout)
-    except (OSError, ValueError) as exc:
-        parser.error(str(exc))
-    print(f"saved {path}")
+    for dest, url, digest in ((DEST, URL, args.sha256), (SPLIT_DEST, SPLIT_URL, SPLIT_PINNED_SHA256)):
+        try:
+            path = download(dest, digest, url=url, timeout=args.timeout)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(f"saved {path}")
 
 
 if __name__ == "__main__":

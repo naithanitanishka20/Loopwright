@@ -89,6 +89,17 @@ def build_model(plan, settings=DEFAULT):
         diagnostics.append({"code": "NO_ELIGIBLE_ROOM"})
 
     layers = {k: valid(plan.get(k)) for k in LAYERS}
-    layers["inner"] = inner
     wall_depth = float(plan.get("wall_depth") or 0) or 0.2 / s
+    # Some ResPlan plans have an `inner` outline that leaves out parts of rooms.
+    # Rooms are inside the building by definition, so widen the outline to cover
+    # every room and door (grown by half a wall to close the passages between
+    # them). Walls and external areas are still subtracted later. Assumptions Q16.
+    if spaces:
+        rooms = unary_union([sp.geom for sp in spaces])
+        outside_m2 = rooms.difference(inner).area * s2
+        if outside_m2 > 0.5:
+            cover = [rooms] + ([layers["door"]] if layers["door"] is not None and not layers["door"].is_empty else [])
+            inner = unary_union([inner, unary_union(cover).buffer(0.5 * wall_depth)])
+            diagnostics.append({"code": "INNER_REPAIRED", "added_m2": round(outside_m2, 1)})
+    layers["inner"] = inner
     return PlanModel(plan.get("id"), s, spaces, layers, diagnostics, wall_depth)

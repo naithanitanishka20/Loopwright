@@ -31,6 +31,15 @@ Each fix commit names the problem it fixes and, where possible, adds a test that
 
 Dataset tests carry the `dataset` marker and skip when `data/ResPlan.zip` is absent. Keep network tests deterministic: inject the opener and use a fixed payload, as `tests/unit/test_fetch_resplan.py` does.
 
+## Browser tests (Playwright)
+
+```bash
+python -m pip install -e ".[e2e]"
+python -m pytest -m e2e -q
+```
+
+They use Playwright's own Chromium if you ran `python -m playwright install chromium`, otherwise your installed Edge or Chrome. Without Playwright they skip.
+
 ## Phase-specific checks
 
 See `docs/phases/PHASE-N.md` for what each phase delivered, how to run it, and what to try to break.

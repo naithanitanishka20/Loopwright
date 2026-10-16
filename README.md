@@ -11,21 +11,23 @@ python -m venv .venv
 .venv/Scripts/activate            # Windows
 source .venv/bin/activate         # macOS/Linux
 python -m pip install -e ".[dev]"
-python scripts/fetch_resplan.py   # downloads data/ResPlan.zip (~100 MB, not committed) and checks its SHA-256
+python scripts/fetch_resplan.py   # downloads data/ResPlan.zip (~100 MB, not committed) and split.json, checking each SHA-256
 python -m pytest -q
 ```
 
-The download is refused unless its SHA-256 matches the pinned digest; pass `--sha256` or set `LOOPWRIGHT_RESPLAN_SHA256` to trust a different archive.
+Each download is refused unless its SHA-256 matches the pinned digest; pass `--sha256` or set `LOOPWRIGHT_RESPLAN_SHA256` to trust a different archive.
 
 ## Use
 
 ```bash
-loopwright solve --id 14433 --out out/          # writes out/14433.json and out/14433.svg
+loopwright solve --id 14433 --out out/          # out/14433.json, .svg and .html (viewer)
 loopwright validate out/14433.json --id 14433   # structure, then independent checks V00-V14
 loopwright validate out/14433.json              # structure only: types, finite numbers, schema keys
 loopwright solve --json plan.json --out out/    # an organisers' JSON file instead of a dataset id
+loopwright index out/                           # out/index.html listing every solved plan
+loopwright batch --split test --workers 8       # the ResPlan test split, failures grouped by cause
+loopwright batch --sample 100 --workers 8       # random ResPlan plans instead of a split
 loopwright config                               # the default settings as JSON
-loopwright batch --sample 100 --workers 8       # random ResPlan plans, failures grouped by cause
 ```
 
 Options mirror `docs/assumptions.md`, for example `--zone-link through_rooms` or `--max-nodes 20`.
