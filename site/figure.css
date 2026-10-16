@@ -1,0 +1,91 @@
+/* The scale-model figures. The page links this file, and `loopwright site` embeds it in each
+   drawing under assets/, so a drawing also opens on its own. Monochrome tones by facing; colour
+   only where it means something: a ring's zone, its sockets and hubs, and the signal. */
+
+.iso-svg {
+  --paper: #0a0b0d;
+  --s0: #0f1013;
+  --s1: #131519;
+  --s2: #181a1f;
+  --s3: #1d2026;
+  --top: #262a31;
+  --hi: #dfe4ea;
+  --mid: #7d8590;
+  --lo: #4a5059;
+  --faint: #2d3238;
+  --lit: #05f7ff;
+  --base-top: #121418;
+  --floor: #0d0e11;
+  --glass: #1b2a33;
+  --glass-top: #2a4552;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.iso-svg path,
+.iso-svg circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.iso-fill { fill: var(--paper); stroke: none; }
+.iso-shade, .iso-top { stroke: none; }
+.iso-shade[data-shade="0"] { fill: var(--s0); }
+.iso-shade[data-shade="1"] { fill: var(--s1); }
+.iso-shade[data-shade="2"] { fill: var(--s2); }
+.iso-shade[data-shade="3"] { fill: var(--s3); }
+.iso-top { fill: var(--top); }
+.base .iso-top { fill: var(--base-top); }
+
+/* Faces split for sorting are stroked in their own tone, so no seam shows between them */
+.wall-face .iso-shade { stroke-width: 0.8px; stroke-linejoin: round; }
+.wall-face .iso-shade[data-shade="0"] { stroke: var(--s0); }
+.wall-face .iso-shade[data-shade="1"] { stroke: var(--s1); }
+.wall-face .iso-shade[data-shade="2"] { stroke: var(--s2); }
+.wall-face .iso-shade[data-shade="3"] { stroke: var(--s3); }
+.wall-face.glass .iso-shade { fill: var(--glass); stroke: var(--glass); }
+.glass-top { fill: var(--glass-top); }
+
+.iso-line { fill: none; stroke: var(--lo); stroke-width: 0.6px; stroke-linecap: round; stroke-linejoin: round; }
+.iso-line[data-tone="hi"] { stroke: var(--hi); }
+.iso-line[data-tone="mid"] { stroke: var(--mid); }
+.iso-line[data-tone="lo"] { stroke: var(--lo); }
+.iso-line[data-tone="faint"] { stroke: var(--faint); }
+.iso-dots circle { fill: #e6e6e6; opacity: 0.32; }
+.iso-dots[data-tone="mid"] circle { opacity: 0.45; }
+.iso-halo { fill: #000; opacity: 0.9; filter: blur(9px); transform: translateY(3px); }
+.iso-face-text { fill: var(--mid); font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; letter-spacing: 0.02em; }
+
+.room { fill: var(--floor); stroke: var(--faint); stroke-width: 0.6px; }
+.room[data-zone] { fill: color-mix(in srgb, var(--ring) 8%, var(--floor)); }
+.threshold { fill: var(--paper); stroke: var(--lo); stroke-width: 0.6px; }
+
+.tb-body { fill: var(--s2); }
+.tb-shine { fill: var(--top); }
+.tb-shade { fill: var(--s0); }
+.tb > .iso-edge { stroke: var(--hi); }
+.coloured .tb > .iso-edge { stroke: var(--ring); }
+.iso-wire-end { fill: var(--paper); stroke: var(--hi); stroke-width: 0.6px; }
+.coloured .iso-wire-end { stroke: var(--ring); }
+
+.socket .led { fill: var(--lo); transition: fill 0.35s ease; }
+.coloured .socket .led,
+.socket.fed .led { fill: var(--ring); }
+.hub .port { fill: var(--ring); }
+
+/* A cut leg: its joint piece parts, and the two cut ends show */
+.cut-end { display: none; fill: var(--s2); stroke: var(--hi); stroke-width: 0.6px; }
+.tb.cut > .tb-body,
+.tb.cut > .tb-shine,
+.tb.cut > .tb-shade,
+.tb.cut > .iso-edge,
+.tb.cut > .core,
+.tb.cut > .glow { display: none; }
+.tb.cut > .cut-end { display: inline; }
+.tb.on > .iso-edge { stroke: var(--lit); }
+
+/* The signal: each cable piece shows the part of the pulse that lies on it */
+.core { fill: none; stroke: var(--ring); stroke-width: 1.8px; stroke-linecap: round; visibility: hidden; }
+.glow { fill: none; stroke: var(--ring); stroke-width: 6px; stroke-linecap: round; opacity: 0.3; visibility: hidden; }
+.hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
