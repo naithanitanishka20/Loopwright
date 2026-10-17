@@ -9,9 +9,9 @@ Given a floor plan, Loopwright decides how many hubs, where each goes, which roo
 Every ResPlan plan, all 17,000 (`bench/results.md`, written by `loopwright results` from the batch records in `bench/`):
 
 - **Valid**: 16,556 of 16,556 feasible plans. The other 444 each have a room over 100 m², which no design can satisfy; they are flagged infeasible.
-- **Hubs**: 29,377 against a lower bound of 23,893; the greedy baseline needs 31,046. 12,906 plans meet the bound exactly. The rest are held above it by the door rule or by rooms that don't pack into zones of at most 100 m² and 5 nodes; "Why this many hubs?" names the reason on any plan.
-- **Cable**: 323,483 m in all; J = 446,668, 27.0 per plan, scored exactly as the organisers' slide 7 defines the metrics (bends at nodes and the hub, crossings and overlap inside and between rings). Nodes sit by the doors and legs keep to separate lanes, so a ring rarely runs over itself.
-- **Time**: one process on a laptop, test split: p50 0.38 s, p95 1.26 s per plan.
+- **Hubs**: 29,369 against a lower bound of 23,893; the greedy baseline needs 31,052. 12,911 plans meet the bound exactly. The rest are held above it by the door rule or by rooms that don't pack into zones of at most 100 m² and 5 nodes; "Why this many hubs?" names the reason on any plan.
+- **Cable**: 323,557 m in all; J = 446,733, 27.0 per plan, scored exactly as the organisers' slide 7 defines the metrics (bends at nodes and the hub, crossings and overlap inside and between rings). Nodes sit by the doors and legs keep to separate lanes, so a ring rarely runs over itself.
+- **Time**: one process on a laptop, test split: p50 0.15 s, p95 0.64 s per plan.
 
 ![Hubs above the lower bound per plan, exact against greedy](docs/figures/extra-hubs.svg)
 

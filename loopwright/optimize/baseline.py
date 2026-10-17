@@ -1,8 +1,8 @@
 """Greedy zoning baseline, used only to show what the exact search saves.
 
 Seed the largest unassigned room, then keep adding the largest directly linked
-room that fits both caps. Measured on 16,550 feasible plans (strict rule):
-31,008 hubs against the exact 29,281.
+room that fits both caps. Measured on all 16,556 feasible ResPlan plans (strict
+rule, Phase 14): 31,052 hubs against the exact 29,369.
 """
 
 
